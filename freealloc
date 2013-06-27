@@ -1,0 +1,211 @@
+#!/usr/bin/env python
+#
+# freealloc - display resources requested by jobs in an allocation
+#
+
+import site
+site.addsitedir('/home2/markmont/pbs/python-modules/lib/python2.6/site-packages/')
+site.addsitedir('/home2/markmont/pbs/python-modules/lib64/python2.6/site-packages/')
+
+
+# We need to load a version of the TORQUE library that is compatible with
+# the version of pbs_python we currently have.  Flux is running TORQUE 4.2.x
+# while pbs_python 4.3.5 currently only works with TORQUE 4.1.x and previous.
+#
+# It's too late to set LD_LIBRARY_PATH here.
+# Tried using an interpreter line of
+#   #!/usr/bin/env LD_LIBRARY_PATH=/home2/markmont/pbs/torque/lib python
+# ...but this loops infinitely trying to load the libraries.
+# Also, we don't want to have to have a separate wrapper script for every
+# script that uses pbs_python.
+# So we explicitly open the library so that it's already loaded when
+# pbs_python gets loaded.
+import ctypes
+libtorque = ctypes.cdll.LoadLibrary('/home2/markmont/pbs/torque/lib/libtorque.so.2.0.0')
+
+import pbs
+
+import sys
+import os
+import re
+import subprocess
+from collections import defaultdict
+import argparse
+
+
+# Use libc's atoi() function per
+# http://stackoverflow.com/questions/1665511/python-equivalent-to-atoi-atof
+# ...because using regular expressions followed by int() seems overkill,
+# and there are several points where we need to get integers that are at
+# the beginning of strings.
+import ctypes, ctypes.util
+libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
+
+
+
+# Given a string of the form nnnn[ kmgt][ bw]
+# return number of kb
+def get_memory( mem_str ):
+    mem_str = mem_str.lower()
+    mem_str = mem_str.replace(' ', '')
+    m = re.search( r'(\d+)([kmgt]?)([bw]?)', mem_str )
+    if not m: return -1
+    mem = int( m.group(1) )
+    if m.group(2) == 'w' or m.group(3) == 'w': mem *= 8
+    if m.group(2) == 'k': mem *= 1
+    elif m.group(2) == 'm': mem *= 1024
+    elif m.group(2) == 'g': mem *= 1024 * 1024
+    elif m.group(2) == 't': mem *= 1024 * 1024 * 1024
+    else:
+        # memory was expressed in bytes, round up to next kilobyte:
+        mem = int( (mem + 1023) / 1024 )
+        if mem < 1: mem = 1
+    return mem
+
+
+def show_memory( mem ):
+    if mem <= 0: return '???'
+    if mem < 1024: return "%d KB" % mem
+    if mem < 1024 * 1024:
+        mem = int( (mem + (1 << 9)) / 1024 )   # round to nearest
+        return "%d MB" % mem
+    if mem < 1024 * 1024 * 1024:
+        mem = int( (mem + (1 << 19)) / (1024 * 1024) )   # round to nearest
+        return "%d GB" % mem
+    mem = int( (mem + (1 << 29)) / (1024 * 1024 * 1024) )   # round to nearest
+    return "%d TB" % mem
+
+
+
+def main():
+
+    parser = argparse.ArgumentParser(description='Displays unused cores and memory for an allocation')
+    parser.add_argument("allocation_name", help="Name of the allocation")
+    parser.add_argument("--jobs", help="display core and memory usage for each job", action="store_true")
+    args = parser.parse_args()
+    if not re.search( r'^[a-zA-Z]\w*$', args.allocation_name ):
+        print "ERROR: bad allocation name: allocation names must begin with a letter followed by letters, digits, and underscores."
+        sys.exit( 1 );
+
+    maxproc = -1
+    maxmem = -1 # memory in kb
+    mdiag = subprocess.Popen(
+        [ '/home/software/rhel6/moab/bin/mdiag', '-a', args.allocation_name ],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
+    output = mdiag.stdout.readlines()
+    status = mdiag.wait()
+    if status != 0:
+        print "ERROR: mdiag exited with status %d:\n" % status
+        print "".join( output )
+        sys.exit( 2 )
+
+    for line in output:
+        m = re.search( r'\sMAXPROC=(\d+,)?(\d+)\s', line )
+        if m: maxproc = int( m.group(2) )
+        m = re.search( r'\sMAXMEM=(\d+,)?(\d+)\s', line )
+        if m: maxmem = int( m.group(2) ) * 1024  # convert mb to kb
+    if maxproc == -1:
+        print "ERROR: could not determine MAXPROC for allocation %s" % args.allocation_name
+        sys.exit( 2 )
+    if maxmem == -1:
+        print "WARNING: could not determine MAXMEM for allocation %s, assuming 4 GB per core" % args.allocation_name
+        maxmem = maxproc * 4 * 1024 * 1024
+        #print "ERROR: could not determine MAXMEM for allocation %s" % args.allocation_name
+        #sys.exit( 2 )
+
+    pbs_server = pbs.pbs_default()
+    if not pbs_server:
+        print 'ERROR: No default server PBS server configured'
+        sys.exit( 3 )
+
+    con = pbs.pbs_connect( pbs_server )
+    if not con:
+        print "ERROR: unable to connect to PBS server %s" % pbs_server
+        sys.exit( 3 )
+
+    job_info = pbs.pbs_statjob( con, '', 'NULL', 'NULL' )
+
+    total_cores = 0
+    total_mem = 0  # memory in kb
+    uncertain = 0
+
+    if args.jobs:
+        print "Job ID           User     Cores    Memory"
+        print "---------------- -------- ----- ---------"
+
+    for entry in job_info:
+
+        attrib = defaultdict(dict)
+        for a in entry.attribs:
+            if a.resource:
+                k = a.resource
+            else:
+                k = 'value'
+            attrib[a.name][k] = a.value
+
+        if not 'Account_Name' in attrib or attrib['Account_Name']['value'] != args.allocation_name:
+            continue
+        if attrib['job_state']['value'] != 'R':
+            continue
+
+        cores = -1
+        r = attrib['Resource_List']
+        if 'procs_bitmap' in r:
+            # see http://www.clusterresources.com/torquedocs21/3.6schedulingcores.shtml
+            cores = len( r['procs_bitmap'] )
+        if 'procs' in r:
+            c = libc.atoi( r['procs'] )
+            if c > cores and c > 0: cores = c
+        if 'nodes' in r:
+            c = 0
+            for nodespec in r['nodes'].split('+'):
+                p = 1
+                n = libc.atoi( nodespec )
+                if n < 1: n = 1
+                m = re.search( r'(t|p)pn=(\d+)', nodespec )
+                if m: p = int( m.group(2) )
+                if p < 1: p = 1
+                c += n*p
+            if c > cores and c > 0: cores = c
+        if 'exec_host' in attrib:
+            #if cores <= 0: print "%s: %s" % (entry.name, attrib['exec_host']['value'])
+            c = 0
+            for host in attrib['exec_host']['value'].split('+'):
+                # we know how to handle host specs of the form nyx5678/3
+                if not re.search( r'\w+/\d+', host ):
+                    # something we don't know how to interpret, bail
+                    c = 0
+                    break
+                c += 1
+            if c > cores and c > 0: cores = c
+
+        if cores > 0: total_cores += cores
+
+        mem = -1
+        if 'pmem' in r and cores > 0:
+            mem = get_memory( r['pmem'] ) * cores;
+        if 'mem' in r:
+            m = get_memory( r['mem'] );
+            if m > mem and m > 0: mem = m
+
+        if mem > 0: total_mem += mem
+
+        if cores <= 0 or mem <= 0: uncertain = 1
+
+        id = entry.name.split('.')[0]
+        user = attrib['Job_Owner']['value'].split('@')[0]
+
+        if args.jobs:
+            print "%-16s %-8s %5s %9s" % ( id, user, cores if cores > 0 else '???', show_memory( mem ) )
+            #print attrib, "\n"
+            #print entry.name, attrib['Resource_List']
+
+    if args.jobs: print ""
+    print "%s%d of %d core%s in use, %d %score%s available " % ( 'AT LEAST ' if uncertain else '', total_cores, maxproc, '' if maxproc == 1 else 's', maxproc - total_cores, 'OR FEWER ' if uncertain else '', '' if maxproc - total_cores == 1 else 's' )
+    print "%s%s of %s memory in use, %s %smemory available " % ( 'AT LEAST ' if uncertain else '', show_memory( total_mem ), show_memory( maxmem ), show_memory( maxmem - total_mem ), 'OR LESS ' if uncertain else '' )
+
+
+if __name__ == "__main__":
+    main()
+
