@@ -3,9 +3,11 @@
 # freealloc - display resources requested by jobs in an allocation
 #
 
+INSTALL_ROOT = '/home/software/rhel6/lsa/flux-utils';
+
 import site
-site.addsitedir('/home2/markmont/pbs/python-modules/lib/python2.6/site-packages/')
-site.addsitedir('/home2/markmont/pbs/python-modules/lib64/python2.6/site-packages/')
+site.addsitedir( "%s/python-modules/lib/python2.6/site-packages/" % INSTALL_ROOT )
+site.addsitedir( "%s/python-modules/lib64/python2.6/site-packages/" % INSTALL_ROOT )
 
 
 # We need to load a version of the TORQUE library that is compatible with
@@ -21,7 +23,7 @@ site.addsitedir('/home2/markmont/pbs/python-modules/lib64/python2.6/site-package
 # So we explicitly open the library so that it's already loaded when
 # pbs_python gets loaded.
 import ctypes
-libtorque = ctypes.cdll.LoadLibrary('/home2/markmont/pbs/torque/lib/libtorque.so.2.0.0')
+libtorque = ctypes.cdll.LoadLibrary( "%s/torque/lib/libtorque.so.2.0.0" % INSTALL_ROOT )
 
 import pbs
 
