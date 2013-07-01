@@ -17,7 +17,7 @@ INSTALLATION
 
 flux-utils requires:
 
-* `pbs_python`.  Note that `pbs_python` versions 4.3.5 and previous require a version of TORQUE that is 4.1.x or below.
+* `[pbs_python](https://oss.trac.surfsara.nl/pbs_python)`.  Note that `pbs_python` versions 4.3.5 and previous require a version of TORQUE that is 4.1.x or below.
 * Either Python 3 or, if Python 2 is being used, the `argparse` module.
 
 
