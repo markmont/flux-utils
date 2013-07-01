@@ -66,12 +66,12 @@ def get_memory( mem_str ):
 
 
 def show_memory( mem ):
-    if mem <= 0: return '???'
-    if mem < 1024: return "%d KB" % mem
-    if mem < 1024 * 1024:
+    if mem < 0: return '???'
+    if mem < 10 * 1024: return "%d KB" % mem
+    if mem < 10 * 1024 * 1024:
         mem = int( (mem + (1 << 9)) / 1024 )   # round to nearest
         return "%d MB" % mem
-    if mem < 1024 * 1024 * 1024:
+    if mem < 10 * 1024 * 1024 * 1024:
         mem = int( (mem + (1 << 19)) / (1024 * 1024) )   # round to nearest
         return "%d GB" % mem
     mem = int( (mem + (1 << 29)) / (1024 * 1024 * 1024) )   # round to nearest
