@@ -10,22 +10,9 @@ site.addsitedir( "%s/python-modules/lib/python2.6/site-packages/" % INSTALL_ROOT
 site.addsitedir( "%s/python-modules/lib64/python2.6/site-packages/" % INSTALL_ROOT )
 
 
-# We need to load a version of the TORQUE library that is compatible with
-# the version of pbs_python we currently have.  Flux is running TORQUE 4.2.x
-# while pbs_python 4.3.5 currently only works with TORQUE 4.1.x and previous.
-#
-# It's too late to set LD_LIBRARY_PATH here.
-# Tried using an interpreter line of
-#   #!/usr/bin/env LD_LIBRARY_PATH=/home2/markmont/pbs/torque/lib python
-# ...but this loops infinitely trying to load the libraries.
-# Also, we don't want to have to have a separate wrapper script for every
-# script that uses pbs_python.
-# So we explicitly open the library so that it's already loaded when
-# pbs_python gets loaded.
-import ctypes
-libtorque = ctypes.cdll.LoadLibrary( "%s/torque/lib/libtorque.so.2.0.0" % INSTALL_ROOT )
-
-import pbs
+# Load the standard system-wide version of the torque library:
+from ctypes import *
+libtorque = cdll.LoadLibrary( "/usr/local/torque/lib/libtorque.so.2.0.0" )
 
 import sys
 import os
@@ -40,7 +27,7 @@ import argparse
 # ...because using regular expressions followed by int() seems overkill,
 # and there are several points where we need to get integers that are at
 # the beginning of strings.
-import ctypes, ctypes.util
+import ctypes.util
 libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
 
 
@@ -101,7 +88,7 @@ def main():
         print "ERROR: mdiag exited with status %d:\n" % status
         print "".join( output )
         sys.exit( 2 )
-
+    
     for line in output:
         m = re.search( r'\sMAXPROC=(\d+,)?(\d+)\s', line )
         if m: maxproc = int( m.group(2) )
@@ -116,17 +103,40 @@ def main():
         #print "ERROR: could not determine MAXMEM for allocation %s" % args.allocation_name
         #sys.exit( 2 )
 
-    pbs_server = pbs.pbs_default()
+    libtorque.pbs_default.restype = c_char_p
+    pbs_server = libtorque.pbs_default()
     if not pbs_server:
         print 'ERROR: No default server PBS server configured'
         sys.exit( 3 )
 
-    con = pbs.pbs_connect( pbs_server )
+    con = libtorque.pbs_connect( pbs_server )
     if not con:
         print "ERROR: unable to connect to PBS server %s" % pbs_server
         sys.exit( 3 )
 
-    job_info = pbs.pbs_statjob( con, '', 'NULL', 'NULL' )
+    class ATTRL(Structure):
+        pass
+
+    ATTRL._fields_ = [
+        ( "next", POINTER(ATTRL) ),
+        ( "name", c_char_p ),
+        ( "resource", c_char_p ),
+        ( "value", c_char_p )
+        ]
+
+    class BATCH_STATUS(Structure):
+        pass
+
+    BATCH_STATUS._fields_ = [
+        ( "next", POINTER(BATCH_STATUS) ),
+        ( "name", c_char_p ),
+        ( "attribs", POINTER(ATTRL) ),
+        ( "text", c_char_p )
+        ]
+
+    libtorque.pbs_statjob.argtypes = [ c_int, c_char_p, c_void_p, c_char_p ]
+    libtorque.pbs_statjob.restype = POINTER(BATCH_STATUS)
+    job_info = libtorque.pbs_statjob( con, '', None, None )
 
     total_cores = 0
     total_mem = 0  # memory in kb
@@ -136,19 +146,24 @@ def main():
         print "Job ID           User     Cores    Memory"
         print "---------------- -------- ----- ---------"
 
-    for entry in job_info:
+    job = job_info
+    while job:
 
         attrib = defaultdict(dict)
-        for a in entry.attribs:
-            if a.resource:
-                k = a.resource
+        a = job.contents.attribs
+        while a:
+            if a.contents.resource:
+                k = a.contents.resource
             else:
                 k = 'value'
-            attrib[a.name][k] = a.value
+            attrib[a.contents.name][k] = a.contents.value
+            a = a.contents.next
 
         if not 'Account_Name' in attrib or attrib['Account_Name']['value'] != args.allocation_name:
+            job = job.contents.next
             continue
         if attrib['job_state']['value'] != 'R':
+            job = job.contents.next
             continue
 
         cores = -1
@@ -171,7 +186,7 @@ def main():
                 c += n*p
             if c > cores and c > 0: cores = c
         if 'exec_host' in attrib:
-            #if cores <= 0: print "%s: %s" % (entry.name, attrib['exec_host']['value'])
+            #if cores <= 0: print "%s: %s" % (job.contents.name, attrib['exec_host']['value'])
             c = 0
             for host in attrib['exec_host']['value'].split('+'):
                 # we know how to handle host specs of the form nyx5678/3
@@ -195,13 +210,16 @@ def main():
 
         if cores <= 0 or mem <= 0: uncertain = 1
 
-        id = entry.name.split('.')[0]
+        id = job.contents.name.split('.')[0]
         user = attrib['Job_Owner']['value'].split('@')[0]
 
         if args.jobs:
             print "%-16s %-8s %5s %9s" % ( id, user, cores if cores > 0 else '???', show_memory( mem ) )
             #print attrib, "\n"
-            #print entry.name, attrib['Resource_List']
+            #print job.contents.name, attrib['Resource_List']
+
+        job = job.contents.next
+
 
     if args.jobs: print ""
     print "%s%d of %d core%s in use, %d %score%s available " % ( 'AT LEAST ' if uncertain else '', total_cores, maxproc, '' if maxproc == 1 else 's', maxproc - total_cores, 'OR FEWER ' if uncertain else '', '' if maxproc - total_cores == 1 else 's' )

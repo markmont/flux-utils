@@ -15,10 +15,7 @@ freealloc - displays unused cores and memory for an allocation
 INSTALLATION
 ============
 
-flux-utils requires:
-
-* [pbs_python](https://oss.trac.surfsara.nl/pbs_python).  Note that `pbs_python` versions 4.3.5 and previous require a version of TORQUE that is 4.1.x or below.
-* Either Python 3 or, if Python 2 is being used, the `argparse` module.
+flux-utils requires either Python 3 or, if Python 2 is being used, the `argparse` module.
 
 
 The following commands are very rough and are specific to Flux:
@@ -29,44 +26,7 @@ cd /usr/flux/software/src/lsa/flux-utils
 
 INSTALL_DIR=/home/software/rhel6/lsa/flux-utils
 
-mkdir -p ${INSTALL_DIR}
-
-
-# pbs_python <= 4.3.5 does not work with TORQUE >= 4.2
-# So we compile our own copy of TORQUE for pbs_python to use
-# We don't want this version of TORQUE to be used when the user
-# does things (only when the scripts that use pbs_python do things)
-# so we install it in ${INSTALL_DIR}/torque/{bin,lib,...} rather than
-# in ${INSTALL_DIR}/{bin,lib,...}
-
-tar zxf torque-4.1.5.1.tar.gz
-cd torque-4.1.5.1
-./configure --prefix=${INSTALL_DIR}/torque \
-  --disable-server --disable-mom --disable-gui \
-  --with-maildomain=umich.edu --with-rcp=scp \
-  --with-default-server=nyx.engin.umich.edu \
-  2>&1 | tee log.configure
-make 2>&1 | tee log.make
-make install 2>&1 | tee log.install
-cd ..
-
-
-
-# Get pbs_python from
-# https://oss.trac.surfsara.nl/pbs_python
-
 mkdir -p ${INSTALL_DIR}/python-modules/lib/python2.6/site-packages/
-
-
-tar zxf pbs_python-4.3.5.tar.gz
-cd pbs_python-4.3.5
-./configure --prefix=${INSTALL_DIR}/python-modules \
-  --with-pbsdir=${INSTALL_DIR}/torque 2>&1 | tee log.configure
-make 2>&1 | tee log.make
-make install | tee 2>&1 | tee log.install
-# Ignore the error
-# "install: cannot create directory //usr/share/doc/pbs-python: Permission denied"
-cd ..
 
 
 # Only needed for Python 2 < 2.7
