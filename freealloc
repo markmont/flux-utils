@@ -180,8 +180,8 @@ def main():
                 p = 1
                 n = libc.atoi( nodespec )
                 if n < 1: n = 1
-                m = re.search( r'(t|p)pn=(\d+)', nodespec )
-                if m: p = int( m.group(2) )
+                m = re.search( r'ppn=(\d+)', nodespec )
+                if m: p = int( m.group(1) )
                 if p < 1: p = 1
                 c += n*p
             if c > cores and c > 0: cores = c
