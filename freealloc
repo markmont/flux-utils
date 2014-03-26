@@ -169,7 +169,7 @@ def main():
         cores = -1
         r = attrib['Resource_List']
         if 'procs_bitmap' in r:
-            # see http://www.clusterresources.com/torquedocs21/3.6schedulingcores.shtml
+            # see http://docs.adaptivecomputing.com/torque/4-2-6/help.htm#topics/2-jobs/requestingRes.htm#procs_bitmap
             cores = len( r['procs_bitmap'] )
         if 'procs' in r:
             c = libc.atoi( r['procs'] )
