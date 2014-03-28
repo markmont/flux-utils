@@ -1,0 +1,373 @@
+#!/usr/bin/env python
+#
+# lsa_flux_check - determine if a user of lsa_flux, lsa_fluxm, or lsa_fluxg
+# is complying with the usage limits as documented at
+# https://sites.google.com/a/umich.edu/flux-support/support-for-users/lsa_flux
+#
+# Note: this script ONLY checks the usage limits that are not automatically
+# enforced by Moab.
+#
+# Currently, the checks are:
+#   * lsa_flux: 
+#     (no checks currently done -- everything is enforced automatically by Moab)
+#   * lsa_fluxm:
+#     - Make sure walltime for each job is <= 1 week.
+#     - Make sure each job is not capable of being run under lsa_flux:
+#       cores > 24 or cores per node > 16 or mem > 96 GB or mem per node > 64 GB
+#   * lsa_fluxg:
+#     - Make sure walltime for each job is <= 3 days.
+#     - Make sure each job requested exactly 1 GPU (not 0, not 2)
+#
+
+INSTALL_ROOT = '/home/software/rhel6/lsa/flux-utils';
+
+import site
+site.addsitedir( "%s/lib/python2.6/site-packages/" % INSTALL_ROOT )
+
+
+import sys
+import os
+import re
+import time
+import pwd
+import subprocess
+import argparse
+import cStringIO
+import ldap
+import daemon
+from collections import defaultdict
+
+from torque import *
+
+
+accounts = [ 'lsa_flux', 'lsa_fluxm', 'lsa_fluxg' ]
+
+# "processor equivalents" for each allocation, in KB of memory:
+account_pe = { 'lsa_flux': 4194304, 'lsa_fluxm': 26214400, 'lsa_fluxg': 4194304 }
+
+# Maximum per-job wallclock time for each allocation.
+# Note that the lsa_flux limit won't actually affect anything since Moab is
+# configured with a maximum wallclock time of 28 days.
+account_wclimit = { 'lsa_flux': 30*86400, 'lsa_fluxm': 7*86400, 'lsa_fluxg': 3*86400 }
+
+# conversion factors for ss:mm:hh:d (reverse of d:hh:mm:ss walltime specification)
+walltime_conv = [ 1, 60, 3600, 86400 ]
+
+
+current_user = pwd.getpwuid( os.geteuid() ).pw_name
+
+
+# Use libc's atoi() function per
+# http://stackoverflow.com/questions/1665511/python-equivalent-to-atoi-atof
+# ...because using regular expressions followed by int() seems overkill,
+# and there are several points where we need to get integers that are at
+# the beginning of strings.
+import ctypes.util
+libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
+
+
+def flux_support_staff( user ):
+    match = "uid=%s,ou=People,dc=umich,dc=edu" % user
+    try:
+        directory = ldap.initialize( "ldap://ldap.umich.edu/" )
+        results = directory.search_s( "ou=User Groups,ou=Groups,dc=umich,dc=edu", ldap.SCOPE_SUBTREE, "(cn=flux-support-staff)", [ "member" ] )
+        for dn, entry in results:
+            if 'member' in entry:
+                members = entry['member']
+                if match in members:
+                    return True
+    except ldap.LDAPError, e:
+        print "Error talking to LDAP server:"
+        print e
+    return False
+
+
+# Capture the script's stdout into a variable.
+# Based on https://stackoverflow.com/questions/16571150/how-to-capture-stdout-output-from-a-python-function-call
+class Capturing( list ):
+    def __enter__( self ):
+        self._stdout = sys.stdout
+        sys.stdout = self._stringio = cStringIO.StringIO()
+        return self
+    def __str__( self ):
+        return self._stringio.getvalue()
+    def __exit__( self, *args ):
+        sys.stdout = self._stdout
+
+
+def main( args ):
+
+    warnings = defaultdict( list )
+    flux_usage = defaultdict( dict )
+    flux_jobcount = defaultdict( dict )
+    flux_jobs = defaultdict( list )
+
+    flux_cores = dict()
+    flux_mem = dict()
+    flux_pe = dict()
+    flux_cm = dict()
+    for account in accounts:
+       flux_cores[account] = 0
+       flux_mem[account] = 0
+       flux_pe[account] = 0
+       flux_cm[account] = 0
+
+
+    pbs = PBS()
+    pbs.connect( pbs.default() )
+    jobs = pbs.statjob( '', None, None )
+
+    for job in jobs:
+
+        attrib = job['attrib']
+
+        if not 'Account_Name' in attrib:
+            continue
+        account = attrib['Account_Name']
+        if not account in accounts:
+            continue
+
+        if attrib['job_state'] != 'R':
+            continue
+
+        user = attrib['Job_Owner'].split('@')[0]
+        if not args.all and user != current_user:
+            continue
+
+        cores = -1
+        r = attrib['Resource_List']
+        if 'procs_bitmap' in r:
+            # see http://docs.adaptivecomputing.com/torque/4-2-6/help.htm#topics/2-jobs/requestingRes.htm#procs_bitmap
+            cores = len( r['procs_bitmap'] )
+        if 'procs' in r:
+            c = libc.atoi( r['procs'] )
+            if c > cores and c > 0: cores = c
+        maxppn = 0
+        if 'nodes' in r:
+            c = 0
+            for nodespec in r['nodes'].split('+'):
+                p = 1
+                n = libc.atoi( nodespec )
+                if n < 1: n = 1
+                m = re.search( r'ppn=(\d+)', nodespec )
+                if m:
+                    p = int( m.group(1) )
+                    if p > maxppn: maxppn = p
+                if p < 1: p = 1
+                c += n*p
+            if c > cores and c > 0: cores = c
+        if 'exec_host' in attrib:
+            c = 0
+            for host in attrib['exec_host'].split('+'):
+                # we know how to handle host specs of the form nyx5678/3
+                if not re.search( r'\w+/\d+', host ):
+                    # something we don't know how to interpret, bail
+                    c = 0
+                    break
+                c += 1
+            if c > cores and c > 0: cores = c
+
+        mem = -1
+        if 'pmem' in r and cores > 0:
+            mem = get_memory( r['pmem'] ) * cores;
+        if 'mem' in r:
+            m = get_memory( r['mem'] );
+            if m > mem and m > 0: mem = m
+
+        pe = cores
+        pe_mem = (mem * 1.0) / account_pe[account]
+        if pe_mem > 0 and pe_mem > pe:
+            pe = pe_mem
+
+        id = job['name'].split('.')[0]
+
+        #
+        # Check per-job requested walltime limit:
+        #
+
+        walltime = sum(int(x) * walltime_conv[i] for i,x in enumerate(reversed(r['walltime'].split(":"))))
+        if walltime > account_wclimit[account]:
+            msg = "%s job %s exceeds %s wallclock limit of %d hours: %s" % ( user, id, account, account_wclimit[account] / 3600, show_walltime( walltime ) )
+            warnings[user].append(msg)
+
+        #
+        # Check for inappropriate use of lsa_fluxm
+        # (check to see if job could run under lsa_flux):
+        #
+
+        if account == 'lsa_fluxm' and \
+            cores > 0 and cores <= 24 and mem > 0 and mem <= 96 * 1024 * 1024:
+            # This job can run under lsa_flux, if it has the right geometry:
+            if cores <= 16 and mem <= 64 * 1024 * 1024:
+                # The job can definitely fit on a single Standard Flux node:
+                msg = "%s job %s looks like it should be running under lsa_flux instead of lsa_fluxm" % ( user, id )
+                warnings[user].append(msg)
+            elif 'procs' in r:
+                # The job can fit on more than 1 Standard Flux node:
+                msg = "%s job %s looks like it should be running under lsa_flux instead of lsa_fluxm" % ( user, id )
+                warnings[user].append(msg)
+            elif maxppn > 0 and maxppn <= 16:
+                # The job can fit on more than 1 Standard Flux node:
+                msg = "%s job %s looks like it should be running under lsa_flux instead of lsa_fluxm" % ( user, id )
+                warnings[user].append(msg)
+
+        #
+        # Check for inappropriate use of lsa_fluxg
+        # (not using a GPU, or using more than 1 GPUs):
+        #
+
+        if account == 'lsa_fluxg':
+            gpus = 0
+            if 'nodes' in r:
+                for nodespec in r['nodes'].split('+'):
+                    m = re.search( r'gpus=(\d+)', nodespec )
+                    if m:
+                        gpus += int( m.group(1) )
+            if gpus == 0:
+                msg = "%s job %s is running under lsa_fluxg but has not requested any GPUs -- it should be running under lsa_flux instead" % ( user, id )
+                warnings[user].append(msg)
+            if gpus > 1:
+                msg = "%s job %s is running under lsa_fluxg but has not requested any GPUs -- it should be running under lsa_flux instead" % ( user, id )
+                warnings[user].append(msg)
+
+        #
+        # ...end of checks...
+        #
+
+        w = walltime
+        if attrib['Walltime'] and attrib['Walltime']['Remaining']:
+            w = int( attrib['Walltime']['Remaining'] )
+        cm = 1.0 * cores * w
+
+        flux_usage[account][user] = cm + flux_usage[account].setdefault( user, 0 )
+        flux_jobcount[account][user] = 1 + flux_jobcount[account].setdefault( user, 0 )
+        flux_cores[account] += cores
+        flux_mem[account] += mem
+        flux_pe[account] += pe
+        flux_cm[account] += cm
+
+        flux_jobs[account].append( ( id, user, cores, mem, pe, walltime, cm ) );
+
+
+
+    num_warnings = len( warnings.keys() )
+    if num_warnings > 0:
+        print "\nWARNING: the following jobs violate the LSA public allocation usage policy:\n"
+        for user in warnings:
+            if args.mail: print "sending mail to user " + user + ":"
+            user_warnings = warnings[user]
+            for msg in user_warnings:
+                print "  " + msg
+            if args.mail:
+                message="""\
+From: %s
+Reply-To: flux-support@umich.edu
+To: %s
+Cc: lsait-ars-hpc-staff@umich.edu
+Subject: LSA Public allocation usage policy violation
+Content-type: text/plain    
+
+Hello,
+
+You are currently running the following jobs which appear to violate
+the usage policy for the LSA public Flux allocations:
+
+%s
+
+Please delete these jobs, address the problem, and resubmit the jobs.
+
+For more information on the LSA public Flux allocations' usage
+policies, together with information on how to stay within the usage
+limits, please see
+
+https://sites.google.com/a/umich.edu/flux-support/support-for-users/lsa_flux
+
+This policy is intended to help ensure the fair sharing of LSA's
+public Flux allocations.  People whose job submissions do not adhere
+to the policy will receive email warnings such as this one.  An
+excessive number of notifications may result in your being removed
+from the LSA allocations.
+
+You can check your own usage by running the commands
+
+module load lsa flux-utils
+lsa_flux_check --details
+
+If you have any questions about the policy or how to comply with it,
+or if you would like assistance, please let us know and we will be
+glad to assist you.
+
+Sincerely,
+LSA IT Advocacy and Research Support
+flux-support@umich.edu
+""" % ( current_user + "@umich.edu", user + "@umich.edu", "\n".join( user_warnings ) )
+                pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE ).stdin
+                pipe.write( message )
+                pipe.close()
+
+    if args.details:
+        print ""
+        print "Account   Users Jobs Cores    Memory     PE      CM"
+        print "--------- ----- ---- ----- --------- ------ -------"
+        for account in accounts:
+            jobs = sum( flux_jobcount[account].values() )
+            print "%-9s %5d %4d %5d %9s %6.2f %7.4f" % ( account, len( flux_jobcount[account].keys() ), jobs, flux_cores[account], show_memory( flux_mem[account] ), flux_pe[account], flux_cm[account] / (30*24*60*60) )
+
+    if args.details and args.all:
+        print ""
+        for account in flux_usage:
+            for user in flux_usage[account]:
+                msg = "%-8s has %4d %-9s jobs with %7.4f core*months remaining" % ( user, flux_jobcount[account][user], account, flux_usage[account][user] / (30 * 24 * 60 * 60) )
+                if account == 'lsa_flux': msg += " (limit: 4 core*months)"
+                print msg
+
+    if args.details:
+        print ""
+        print "Job ID         Account   User     Cores    Memory     PE  Walltime CM left"
+        print "-------------- --------- -------- ----- --------- ------ --------- -------"
+        for account in accounts:
+            for job in flux_jobs[account]:
+                ( id, user, cores, mem, pe, walltime, cm ) = job
+                print "%-14s %-9s %-8s %5s %9s %6.2f %9s %7.4f" % ( id, account, user, cores if cores > 0 else '???', show_memory( mem ), pe, show_walltime( walltime ), cm / (30*24*60*60) )
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Checks to see if a user is complying with the usage limits for the LSA public Flux allocaitons")
+    parser.add_argument("--all", help="check all users' usage", action="store_true")
+    parser.add_argument("--details", help="display extra information", action="store_true")
+    parser.add_argument("--mail", help="send mail to offending users (Flux support staff only)", action="store_true")
+    parser.add_argument("--daemonize", help="run as a daemon (Flux support staff only)", action="store_true")
+    args = parser.parse_args()
+    if args.mail:
+        if not flux_support_staff( current_user ):
+            print sys.argv[0] + ": --mail can only be used by Flux support staff"
+            exit( 1 )
+    if args.daemonize:
+        if not flux_support_staff( current_user ):
+            print sys.argv[0] + ": --daemonize can only be used by Flux support staff"
+            exit( 1 )
+        args.all = args.details = args.mail = True
+        print "Becoming daemon.  Will check twice daily (morning and afternoon)."
+        with daemon.DaemonContext():
+            while True:
+                hour = time.localtime().tm_hour
+                if hour == 8 or hour == 16:
+                    with Capturing() as output:
+                        main( args )
+                    message="""\
+From: %s
+To: lsait-ars-hpc-staff@umich.edu
+Subject: lsa_flux usage
+Content-type: text/plain    
+
+%s
+
+""" % ( current_user + "@umich.edu", str( output ) )
+                    pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE ).stdin
+                    pipe.write( message )
+                    pipe.close()
+                time.sleep( 3600 )
+    else:
+        main( args )
+

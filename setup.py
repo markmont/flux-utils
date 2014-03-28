@@ -10,6 +10,6 @@ setup(
     author_email = 'markmont@umich.edu',
     url = 'http://github.com/markmont/flux-utils',
     packages = [ 'torque' ],
-    scripts = [ 'freealloc' ],
+    scripts = [ 'freealloc', 'lsa_flux_check' ],
     )
 

@@ -7,15 +7,27 @@ ABOUT
 SYNOPSIS
 ========
 
-freealloc - displays unused cores and memory for an allocation
+`freealloc` - displays unused cores and memory for an allocation
 
     freealloc [-h] [--jobs] allocation_name
+
+
+`lsa_flux_check` - checks to see if a user is complying with the usage limits for the LSA public Flux allocaitons
+
+    lsa_flux_check [-h] [--all] [--details] [--mail] [--daemonize]
+
+    optional arguments:
+      -h, --help   show this help message and exit
+      --all        check all users' usage
+      --details    display extra information
+      --mail       send mail to offending users (Flux support staff only)
+      --daemonize  run as a daemon (Flux support staff only)
 
 
 INSTALLATION
 ============
 
-flux-utils requires:
+`flux-utils` requires:
 
 * [TORQUE](http://www.adaptivecomputing.com/products/open-source/torque/)
 * [python-daemon](https://pypi.python.org/pypi/python-daemon)
