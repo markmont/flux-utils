@@ -6,13 +6,8 @@
 INSTALL_ROOT = '/home/software/rhel6/lsa/flux-utils';
 
 import site
-site.addsitedir( "%s/python-modules/lib/python2.6/site-packages/" % INSTALL_ROOT )
-site.addsitedir( "%s/python-modules/lib64/python2.6/site-packages/" % INSTALL_ROOT )
+site.addsitedir( "%s/lib/python2.6/site-packages/" % INSTALL_ROOT )
 
-
-# Load the standard system-wide version of the torque library:
-from ctypes import *
-libtorque = cdll.LoadLibrary( "/usr/local/torque/lib/libtorque.so.2.0.0" )
 
 import sys
 import os
@@ -21,6 +16,7 @@ import subprocess
 from collections import defaultdict
 import argparse
 
+from torque import *
 
 # Use libc's atoi() function per
 # http://stackoverflow.com/questions/1665511/python-equivalent-to-atoi-atof
@@ -29,40 +25,6 @@ import argparse
 # the beginning of strings.
 import ctypes.util
 libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
-
-
-
-# Given a string of the form nnnn[ kmgt][ bw]
-# return number of kb
-def get_memory( mem_str ):
-    mem_str = mem_str.lower()
-    mem_str = mem_str.replace(' ', '')
-    m = re.search( r'(\d+)([kmgt]?)([bw]?)', mem_str )
-    if not m: return -1
-    mem = int( m.group(1) )
-    if m.group(2) == 'w' or m.group(3) == 'w': mem *= 8
-    if m.group(2) == 'k': mem *= 1
-    elif m.group(2) == 'm': mem *= 1024
-    elif m.group(2) == 'g': mem *= 1024 * 1024
-    elif m.group(2) == 't': mem *= 1024 * 1024 * 1024
-    else:
-        # memory was expressed in bytes, round up to next kilobyte:
-        mem = int( (mem + 1023) / 1024 )
-        if mem < 1: mem = 1
-    return mem
-
-
-def show_memory( mem ):
-    if mem < 0: return '???'
-    if mem < 10 * 1024: return "%d KB" % mem
-    if mem < 10 * 1024 * 1024:
-        mem = int( (mem + (1 << 9)) / 1024 )   # round to nearest
-        return "%d MB" % mem
-    if mem < 10 * 1024 * 1024 * 1024:
-        mem = int( (mem + (1 << 19)) / (1024 * 1024) )   # round to nearest
-        return "%d GB" % mem
-    mem = int( (mem + (1 << 29)) / (1024 * 1024 * 1024) )   # round to nearest
-    return "%d TB" % mem
 
 
 
@@ -103,41 +65,6 @@ def main():
         #print "ERROR: could not determine MAXMEM for allocation %s" % args.allocation_name
         #sys.exit( 2 )
 
-    libtorque.pbs_default.restype = c_char_p
-    pbs_server = libtorque.pbs_default()
-    if not pbs_server:
-        print 'ERROR: No default server PBS server configured'
-        sys.exit( 3 )
-
-    con = libtorque.pbs_connect( pbs_server )
-    if not con:
-        print "ERROR: unable to connect to PBS server %s" % pbs_server
-        sys.exit( 3 )
-
-    class ATTRL(Structure):
-        pass
-
-    ATTRL._fields_ = [
-        ( "next", POINTER(ATTRL) ),
-        ( "name", c_char_p ),
-        ( "resource", c_char_p ),
-        ( "value", c_char_p )
-        ]
-
-    class BATCH_STATUS(Structure):
-        pass
-
-    BATCH_STATUS._fields_ = [
-        ( "next", POINTER(BATCH_STATUS) ),
-        ( "name", c_char_p ),
-        ( "attribs", POINTER(ATTRL) ),
-        ( "text", c_char_p )
-        ]
-
-    libtorque.pbs_statjob.argtypes = [ c_int, c_char_p, c_void_p, c_char_p ]
-    libtorque.pbs_statjob.restype = POINTER(BATCH_STATUS)
-    job_info = libtorque.pbs_statjob( con, '', None, None )
-
     total_cores = 0
     total_mem = 0  # memory in kb
     uncertain = 0
@@ -146,24 +73,17 @@ def main():
         print "Job ID           User     Cores    Memory"
         print "---------------- -------- ----- ---------"
 
-    job = job_info
-    while job:
+    pbs = PBS()
+    pbs.connect( pbs.default() )
+    jobs = pbs.statjob( '', None, None )
 
-        attrib = defaultdict(dict)
-        a = job.contents.attribs
-        while a:
-            if a.contents.resource:
-                k = a.contents.resource
-            else:
-                k = 'value'
-            attrib[a.contents.name][k] = a.contents.value
-            a = a.contents.next
+    for job in jobs:
 
-        if not 'Account_Name' in attrib or attrib['Account_Name']['value'] != args.allocation_name:
-            job = job.contents.next
+        attrib = job['attrib']
+
+        if not 'Account_Name' in attrib or attrib['Account_Name'] != args.allocation_name:
             continue
-        if attrib['job_state']['value'] != 'R':
-            job = job.contents.next
+        if attrib['job_state'] != 'R':
             continue
 
         cores = -1
@@ -186,9 +106,8 @@ def main():
                 c += n*p
             if c > cores and c > 0: cores = c
         if 'exec_host' in attrib:
-            #if cores <= 0: print "%s: %s" % (job.contents.name, attrib['exec_host']['value'])
             c = 0
-            for host in attrib['exec_host']['value'].split('+'):
+            for host in attrib['exec_host'].split('+'):
                 # we know how to handle host specs of the form nyx5678/3
                 if not re.search( r'\w+/\d+', host ):
                     # something we don't know how to interpret, bail
@@ -210,15 +129,11 @@ def main():
 
         if cores <= 0 or mem <= 0: uncertain = 1
 
-        id = job.contents.name.split('.')[0]
-        user = attrib['Job_Owner']['value'].split('@')[0]
+        id = job['name'].split('.')[0]
+        user = attrib['Job_Owner'].split('@')[0]
 
         if args.jobs:
             print "%-16s %-8s %5s %9s" % ( id, user, cores if cores > 0 else '???', show_memory( mem ) )
-            #print attrib, "\n"
-            #print job.contents.name, attrib['Resource_List']
-
-        job = job.contents.next
 
 
     if args.jobs: print ""

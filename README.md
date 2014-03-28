@@ -15,8 +15,11 @@ freealloc - displays unused cores and memory for an allocation
 INSTALLATION
 ============
 
-flux-utils requires either Python 3 or, if Python 2 is being used, the `argparse` module.
+flux-utils requires:
 
+* [TORQUE](http://www.adaptivecomputing.com/products/open-source/torque/)
+* [python-daemon](https://pypi.python.org/pypi/python-daemon)
+* argparse (included with Python 2.7 and later, and with Python 3.2 and later)
 
 The following commands are very rough and are specific to Flux:
 
@@ -24,34 +27,20 @@ The following commands are very rough and are specific to Flux:
 mkdir /usr/flux/software/src/lsa/flux-utils
 cd /usr/flux/software/src/lsa/flux-utils
 
+git clone https://github.com/markmont/flux-utils.git
+cd flux-utils
+
 INSTALL_DIR=/home/software/rhel6/lsa/flux-utils
+mkdir -p ${INSTALL_DIR}/lib/python2.6/site-packages/
 
-mkdir -p ${INSTALL_DIR}/python-modules/lib/python2.6/site-packages/
-
-
-# Only needed for Python 2 < 2.7
-# or Python 3 < 3.2
-#
-# We don't want to force the use of a specific install of python, since
-# this could interefere with software modules the user chooses to load.
-# So instead we use whatever comes first in the user's PATH.  If the user
-# has not loaded anything, we'll get the standard RHEL version of Python 2.6.2 
-# which does not come with argparse.
-
-wget http://argparse.googlecode.com/files/argparse-1.2.1.tar.gz
-tar zxf argparse-1.2.1.tar.gz
-cd argparse-1.2.1
-python ./setup.py build 2>&1 | tee log.build
-PYTHONPATH=${INSTALL_DIR}/python-modules/lib/python2.6/site-packages/ \
-  python ./setup.py install --prefix ${INSTALL_DIR}/python-modules \
+PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
+  easy_install --prefix ${INSTALL_DIR} argparse python-daemon \
   2>&1 | tee log.install
-cd .
 
-
-mkdir ${INSTALL_DIR}/bin
-cp ~markmont/flux-utils/freealloc .
-cp freealloc ${INSTALL_DIR}/bin
-chmod 755 ${INSTALL_DIR}/bin/freealloc
+python ./setup.py build 2>&1 | tee log.build
+PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
+  python ./setup.py install --prefix ${INSTALL_DIR} \
+  2>&1 | tee -a log.install
 
 
 mkdir /home/software/rhel6/lsa/Modules/modulefiles/flux-utils/
@@ -94,7 +83,7 @@ Additional resources may be available at [http://github.com/markmont/flux-utils]
 LICENSE
 =======
 
-`flux-utils` is Copyright (C) 2013 Regents of The University of Michigan.
+`flux-utils` is Copyright (C) 2013 - 2014 Regents of The University of Michigan.
 
 `flux-utils` is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
