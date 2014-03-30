@@ -303,7 +303,8 @@ flux-support@umich.edu
 """ % ( current_user + "@umich.edu", user + "@umich.edu", "\n".join( user_warnings ) )
                 pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE ).stdin
                 pipe.write( message )
-                pipe.close()
+                pipe.stdin.close()
+                pipe.wait()
 
     if args.details:
         print ""
@@ -366,7 +367,8 @@ Content-type: text/plain
 """ % ( current_user + "@umich.edu", str( output ) )
                     pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE ).stdin
                     pipe.write( message )
-                    pipe.close()
+                    pipe.stdin.close()
+                    pipe.wait()
                 time.sleep( 3600 )
     else:
         main( args )
