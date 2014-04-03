@@ -301,8 +301,8 @@ Sincerely,
 LSA IT Advocacy and Research Support
 flux-support@umich.edu
 """ % ( current_user + "@umich.edu", user + "@umich.edu", "\n".join( user_warnings ) )
-                pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE ).stdin
-                pipe.write( message )
+                pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE )
+                pipe.stdin.write( message )
                 pipe.stdin.close()
                 pipe.wait()
 
@@ -365,8 +365,8 @@ Content-type: text/plain
 %s
 
 """ % ( current_user + "@umich.edu", str( output ) )
-                    pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE ).stdin
-                    pipe.write( message )
+                    pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE )
+                    pipe.stdin.write( message )
                     pipe.stdin.close()
                     pipe.wait()
                 time.sleep( 3600 )
