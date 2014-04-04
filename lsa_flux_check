@@ -43,6 +43,7 @@ from torque import *
 # account name and core counts
 accounts = [ 'lsa_flux', 'lsa_fluxm', 'lsa_fluxg' ]
 account_cores = { 'lsa_flux': 120, 'lsa_fluxm': 40, 'lsa_fluxg': 4 }
+account_mem = { 'lsa_flux': '480 GB', 'lsa_fluxm': '1024 GB', 'lsa_fluxg': '16 GB' }
 
 # "processor equivalents" for each allocation, in KB of memory:
 account_pe = { 'lsa_flux': 4194304, 'lsa_fluxm': 26214400, 'lsa_fluxg': 4194304 }
@@ -313,11 +314,11 @@ flux-support@umich.edu
 
     if args.details:
         print ""
-        print "Account   Users Jobs       Cores        Memory     PE      CM"
-        print "--------- ----- ---------- --------- --------- ------ -------"
+        print "Account   Users         Jobs      Cores               Memory     PE      CM"
+        print "--------- ----- ------------ ----------- ------------------- ------ -------"
         for account in accounts:
             jobs = sum( flux_runningjobcount_byuser[account].values() )
-            print "%-9s %5d %4d/%5d %5d/%3d %9s %6.2f %7.4f" % ( account, len( flux_runningjobcount_byuser[account].keys() ), jobs, flux_totaljobcount[account], flux_cores[account], account_cores[account], show_memory( flux_mem[account] ), flux_pe[account], flux_cm[account] / (30*24*60*60) )
+            print "%-9s %5d %4d / %5d %5d / %3d %9s / %7s %6.2f %7.4f" % ( account, len( flux_runningjobcount_byuser[account].keys() ), jobs, flux_totaljobcount[account], flux_cores[account], account_cores[account], show_memory( flux_mem[account] ), account_mem[account], flux_pe[account], flux_cm[account] / (30*24*60*60) )
 
     if args.details and args.all:
         print ""
