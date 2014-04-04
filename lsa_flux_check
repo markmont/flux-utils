@@ -101,18 +101,20 @@ def main( args ):
 
     warnings = defaultdict( list )
     flux_usage = defaultdict( dict )
-    flux_jobcount = defaultdict( dict )
-    flux_jobs = defaultdict( list )
+    flux_runningjobcount_byuser = defaultdict( dict )
+    flux_runningjobs = defaultdict( list )
 
     flux_cores = dict()
     flux_mem = dict()
     flux_pe = dict()
     flux_cm = dict()
+    flux_totaljobcount = dict()
     for account in accounts:
        flux_cores[account] = 0
        flux_mem[account] = 0
        flux_pe[account] = 0
        flux_cm[account] = 0
+       flux_totaljobcount[account] = 0
 
 
     pbs = PBS()
@@ -128,6 +130,7 @@ def main( args ):
         account = attrib['Account_Name']
         if not account in accounts:
             continue
+        flux_totaljobcount[account] += 1
 
         if attrib['job_state'] != 'R':
             continue
@@ -242,13 +245,13 @@ def main( args ):
         cm = 1.0 * cores * w
 
         flux_usage[account][user] = cm + flux_usage[account].setdefault( user, 0 )
-        flux_jobcount[account][user] = 1 + flux_jobcount[account].setdefault( user, 0 )
+        flux_runningjobcount_byuser[account][user] = 1 + flux_runningjobcount_byuser[account].setdefault( user, 0 )
         flux_cores[account] += cores
         flux_mem[account] += mem
         flux_pe[account] += pe
         flux_cm[account] += cm
 
-        flux_jobs[account].append( ( id, user, cores, mem, pe, walltime, cm ) );
+        flux_runningjobs[account].append( ( id, user, cores, mem, pe, walltime, cm ) );
 
 
 
@@ -310,17 +313,17 @@ flux-support@umich.edu
 
     if args.details:
         print ""
-        print "Account   Users Jobs Cores        Memory     PE      CM"
-        print "--------- ----- ---- -----     --------- ------ -------"
+        print "Account   Users Jobs       Cores        Memory     PE      CM"
+        print "--------- ----- ---------- --------- --------- ------ -------"
         for account in accounts:
-            jobs = sum( flux_jobcount[account].values() )
-            print "%-9s %5d %4d %5d/%3d %9s %6.2f %7.4f" % ( account, len( flux_jobcount[account].keys() ), jobs, flux_cores[account], account_cores[account], show_memory( flux_mem[account] ), flux_pe[account], flux_cm[account] / (30*24*60*60) )
+            jobs = sum( flux_runningjobcount_byuser[account].values() )
+            print "%-9s %5d %4d/%5d %5d/%3d %9s %6.2f %7.4f" % ( account, len( flux_runningjobcount_byuser[account].keys() ), jobs, flux_totaljobcount[account], flux_cores[account], account_cores[account], show_memory( flux_mem[account] ), flux_pe[account], flux_cm[account] / (30*24*60*60) )
 
     if args.details and args.all:
         print ""
         for account in flux_usage:
             for user in flux_usage[account]:
-                msg = "%-8s has %4d %-9s jobs with %7.4f core*months remaining" % ( user, flux_jobcount[account][user], account, flux_usage[account][user] / (30 * 24 * 60 * 60) )
+                msg = "%-8s has %4d %-9s jobs with %7.4f core*months remaining" % ( user, flux_runningjobcount_byuser[account][user], account, flux_usage[account][user] / (30 * 24 * 60 * 60) )
                 if account == 'lsa_flux': msg += " (limit: 4 core*months)"
                 print msg
 
@@ -329,7 +332,7 @@ flux-support@umich.edu
         print "Job ID         Account   User     Cores    Memory     PE  Walltime CM left"
         print "-------------- --------- -------- ----- --------- ------ --------- -------"
         for account in accounts:
-            for job in flux_jobs[account]:
+            for job in flux_runningjobs[account]:
                 ( id, user, cores, mem, pe, walltime, cm ) = job
                 print "%-14s %-9s %-8s %5s %9s %6.2f %9s %7.4f" % ( id, account, user, cores if cores > 0 else '???', show_memory( mem ), pe, show_walltime( walltime ), cm / (30*24*60*60) )
 
