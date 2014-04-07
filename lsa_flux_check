@@ -233,7 +233,7 @@ def main( args ):
                 msg = "%s job %s is running under lsa_fluxg but has not requested any GPUs -- it should be running under lsa_flux instead" % ( user, id )
                 warnings[user].append(msg)
             if gpus > 1:
-                msg = "%s job %s is running under lsa_fluxg but has not requested any GPUs -- it should be running under lsa_flux instead" % ( user, id )
+                msg = "%s job %s is using too many GPUs (%d of a maximum of 1)" % ( user, id, gpus )
                 warnings[user].append(msg)
 
         #
