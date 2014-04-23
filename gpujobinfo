@@ -38,7 +38,7 @@ def main():
             continue
         id = job['name'].split('.')[0]
         user = attrib['Job_Owner'].split('@')[0]
-        resources = ','.join( "%s:%s" % (k, v) for k, v in r.items() );
+        resources = ','.join( "%s=%s" % (k, v) for k, v in r.items() );
         blurb = '%-16s %-8s %5s %s' % ( id, user, attrib['job_state'], resources )
         jobinfo[blurb] = attrib['job_state']
         # For "qstat -f" like output:
