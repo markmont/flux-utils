@@ -341,7 +341,7 @@ flux-support@umich.edu
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Checks to see if a user is complying with the usage limits for the LSA public Flux allocaitons")
-    parser.add_argument("--all", help="check all users' usage", action="store_true")
+    parser.add_argument("--all", help="check the usage of all users", action="store_true")
     parser.add_argument("--details", help="display extra information", action="store_true")
     parser.add_argument("--mail", help="send mail to offending users (Flux support staff only)", action="store_true")
     parser.add_argument("--daemonize", help="run as a daemon (Flux support staff only)", action="store_true")

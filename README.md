@@ -18,10 +18,16 @@ SYNOPSIS
 
     optional arguments:
       -h, --help   show this help message and exit
-      --all        check all users' usage
+      --all        check the usage of all users
       --details    display extra information
       --mail       send mail to offending users (Flux support staff only)
       --daemonize  run as a daemon (Flux support staff only)
+
+
+`gpujobinfo` - displays information about jobs requesting GPUs
+
+    gpujobinfo
+
 
 
 INSTALLATION
