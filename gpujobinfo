@@ -1,0 +1,54 @@
+#!/usr/bin/env python
+#
+# gpujobinfo - display information about a PBS jobs that are requesting GPUs.
+# This is currently very rough and unsophisticated.
+#
+
+INSTALL_ROOT = '/home/software/rhel6/lsa/flux-utils';
+
+import site
+site.addsitedir( "%s/lib/python2.6/site-packages/" % INSTALL_ROOT )
+
+
+import sys
+import re
+#import json
+
+from torque import *
+
+
+def main():
+
+    pbs = PBS()
+    server = pbs.default()
+    pbs.connect( server )
+
+    print 'Job              User     State Resources'
+    print '---------------- -------- ----- -------------------'
+
+    jobs = pbs.statjob( '', None, None )
+    jobinfo = {}
+    for job in jobs:
+        attrib = job['attrib']
+        r = attrib['Resource_List']
+        nodes = gres = ''
+        if 'nodes' in r: nodes = r['nodes']
+        if 'gres' in r: gres = r['gres']
+        if nodes.find('gpu') < 0 and gres.find('gpu') < 0:
+            continue
+        id = job['name'].split('.')[0]
+        user = attrib['Job_Owner'].split('@')[0]
+        resources = ','.join( "%s:%s" % (k, v) for k, v in r.items() );
+        blurb = '%-16s %-8s %5s %s' % ( id, user, attrib['job_state'], resources )
+        jobinfo[blurb] = attrib['job_state']
+        # For "qstat -f" like output:
+        #print json.dumps( attrib, indent=4, sort_keys=True ) + "\n"
+
+    # Print with running jobs first, followed by queued and other jobs:
+    for j in sorted( jobinfo, key=jobinfo.get, reverse=True):
+        print j
+
+
+if __name__ == "__main__":
+    main()
+
