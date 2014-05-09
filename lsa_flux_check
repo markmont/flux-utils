@@ -56,6 +56,9 @@ account_wclimit = { 'lsa_flux': 30*86400, 'lsa_fluxm': 7*86400, 'lsa_fluxg': 3*8
 # conversion factors for ss:mm:hh:d (reverse of d:hh:mm:ss walltime specification)
 walltime_conv = [ 1, 60, 3600, 86400 ]
 
+# where to send reports; notificatons to users are also cc:'d to this address
+admin_email = 'lsait-ars-hpc-staff@umich.edu'
+
 
 current_user = pwd.getpwuid( os.geteuid() ).pw_name
 
@@ -266,10 +269,10 @@ def main( args ):
                 print "  " + msg
             if args.mail:
                 message="""\
-From: %s
+From: %(from)s
 Reply-To: flux-support@umich.edu
-To: %s
-Cc: lsait-ars-hpc-staff@umich.edu
+To: %(to)s
+Cc: %(cc)s
 Subject: LSA Public allocation usage policy violation
 Content-type: text/plain    
 
@@ -278,7 +281,7 @@ Hello,
 You are currently running the following jobs which appear to violate
 the usage policy for the LSA public Flux allocations:
 
-%s
+%(warnings)s
 
 Please delete these jobs, address the problem, and resubmit the jobs.
 
@@ -306,7 +309,8 @@ glad to assist you.
 Sincerely,
 LSA IT Advocacy and Research Support
 flux-support@umich.edu
-""" % ( current_user + "@umich.edu", user + "@umich.edu", "\n".join( user_warnings ) )
+""" % { 'from': current_user + "@umich.edu", 'to': user + "@umich.edu",
+    'cc': admin_email, 'warnings': "\n".join( user_warnings ) }
                 pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE )
                 pipe.stdin.write( message )
                 pipe.stdin.close()
@@ -363,14 +367,15 @@ if __name__ == "__main__":
                     with Capturing() as output:
                         main( args )
                     message="""\
-From: %s
-To: lsait-ars-hpc-staff@umich.edu
+From: %(from)s
+To: %(to)s
 Subject: lsa_flux usage
 Content-type: text/plain    
 
-%s
+%(report)s
 
-""" % ( current_user + "@umich.edu", str( output ) )
+""" % { 'from': current_user + "@umich.edu", 'to': admin_email,
+    'report': str( output ) }
                     pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE )
                     pipe.stdin.write( message )
                     pipe.stdin.close()
