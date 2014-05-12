@@ -390,8 +390,7 @@ if __name__ == "__main__":
             if hour == 8 or hour == 16: do_scheduled_report( args )
         else:
             do_scheduled_report( args )
-        #next_hour = 8 if hour < 8 or hour >= 16 else 16
-        next_hour = hour + 1
+        next_hour = 8 if hour < 8 or hour >= 16 else 16
         pipe = subprocess.Popen( [ '/usr/local/torque/bin/qsub', '-N', 'lsa_flux_check', '-V', '-A', 'support_flux', '-q', 'flux', '-M', admin_email, '-m', 'a', '-l', 'procs=1,mem=2gb,walltime=15:00,qos=flux', '-S', '/bin/bash', '-j', 'oe', '-a', '%02d00' % next_hour  ], stdin=subprocess.PIPE )
         pipe.stdin.write( os.path.abspath(inspect.getsourcefile(main) + " --submit" ) )
         pipe.stdin.close()
