@@ -14,7 +14,7 @@ SYNOPSIS
 
 `lsa_flux_check` - checks to see if a user is complying with the usage limits for the LSA public Flux allocaitons
 
-    lsa_flux_check [-h] [--all] [--details] [--mail] [--daemonize]
+    lsa_flux_check [-h] [--all] [--details] [--mail] [--daemonize] [--submit]
 
     optional arguments:
       -h, --help   show this help message and exit
@@ -22,6 +22,7 @@ SYNOPSIS
       --details    display extra information
       --mail       send mail to offending users (Flux support staff only)
       --daemonize  run as a daemon (Flux support staff only)
+      --submit     run as a self-resubmitting job (Flux support staff only)
 
 
 `gpujobinfo` - displays information about jobs requesting GPUs

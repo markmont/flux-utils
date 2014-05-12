@@ -35,6 +35,7 @@ import argparse
 import cStringIO
 import ldap
 import daemon
+import inspect
 from collections import defaultdict
 
 from torque import *
@@ -343,30 +344,10 @@ flux-support@umich.edu
 
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Checks to see if a user is complying with the usage limits for the LSA public Flux allocaitons")
-    parser.add_argument("--all", help="check the usage of all users", action="store_true")
-    parser.add_argument("--details", help="display extra information", action="store_true")
-    parser.add_argument("--mail", help="send mail to offending users (Flux support staff only)", action="store_true")
-    parser.add_argument("--daemonize", help="run as a daemon (Flux support staff only)", action="store_true")
-    args = parser.parse_args()
-    if args.mail:
-        if not flux_support_staff( current_user ):
-            print sys.argv[0] + ": --mail can only be used by Flux support staff"
-            exit( 1 )
-    if args.daemonize:
-        if not flux_support_staff( current_user ):
-            print sys.argv[0] + ": --daemonize can only be used by Flux support staff"
-            exit( 1 )
-        args.all = args.details = args.mail = True
-        print "Becoming daemon.  Will check twice daily (morning and afternoon)."
-        with daemon.DaemonContext():
-            while True:
-                hour = time.localtime().tm_hour
-                if hour == 8 or hour == 16:
-                    with Capturing() as output:
-                        main( args )
-                    message="""\
+def do_scheduled_report( args ):
+    with Capturing() as output:
+        main( args )
+    message="""\
 From: %(from)s
 To: %(to)s
 Subject: lsa_flux usage
@@ -376,10 +357,56 @@ Content-type: text/plain
 
 """ % { 'from': current_user + "@umich.edu", 'to': admin_email,
     'report': str( output ) }
-                    pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE )
-                    pipe.stdin.write( message )
-                    pipe.stdin.close()
-                    pipe.wait()
+    pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE )
+    pipe.stdin.write( message )
+    pipe.stdin.close()
+    pipe.wait()
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Checks to see if a user is complying with the usage limits for the LSA public Flux allocaitons")
+    parser.add_argument("--all", help="check the usage of all users", action="store_true")
+    parser.add_argument("--details", help="display extra information", action="store_true")
+    parser.add_argument("--mail", help="send mail to offending users (Flux support staff only)", action="store_true")
+    parser.add_argument("--daemonize", help="run as a daemon (Flux support staff only)", action="store_true")
+    parser.add_argument("--submit", help="run as a self-resubmitting job (Flux support staff only)", action="store_true")
+    args = parser.parse_args()
+    if args.mail:
+        if not flux_support_staff( current_user ):
+            print sys.argv[0] + ": --mail can only be used by Flux support staff"
+            exit( 1 )
+    if args.submit:
+        if not flux_support_staff( current_user ):
+            print sys.argv[0] + ": --submit can only be used by Flux support staff"
+            exit( 1 )
+        args.all = args.details = args.mail = True
+        args.daemonize = False
+        dir = os.getenv( 'PBS_O_WORKDIR', '.' )
+        os.chdir( dir )
+        hour = time.localtime().tm_hour
+        if sys.stdout.isatty():
+            print "Becoming self-submitting job.  Will check twice daily (morning and afternoon)."
+            if hour == 8 or hour == 16: do_scheduled_report( args )
+        else:
+            do_scheduled_report( args )
+        #next_hour = 8 if hour < 8 or hour >= 16 else 16
+        next_hour = hour + 1
+        pipe = subprocess.Popen( [ '/usr/local/torque/bin/qsub', '-N', 'lsa_flux_check', '-V', '-A', 'support_flux', '-q', 'flux', '-M', admin_email, '-m', 'a', '-l', 'procs=1,mem=2gb,walltime=15:00,qos=flux', '-S', '/bin/bash', '-j', 'oe', '-a', '%02d00' % next_hour  ], stdin=subprocess.PIPE )
+        pipe.stdin.write( os.path.abspath(inspect.getsourcefile(main) + " --submit" ) )
+        pipe.stdin.close()
+        pipe.wait()
+        exit( 0 )
+    if args.daemonize:
+        if not flux_support_staff( current_user ):
+            print sys.argv[0] + ": --daemonize can only be used by Flux support staff"
+            exit( 1 )
+        args.all = args.details = args.mail = True
+        print "Becoming daemon.  Will check twice daily (morning and afternoon)."
+        with daemon.DaemonContext():
+            while True:
+                hour = time.localtime().tm_hour
+                if hour == 8 or hour == 16: do_scheduled_report( args )
                 time.sleep( 3600 )
     else:
         main( args )
