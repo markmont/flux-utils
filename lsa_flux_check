@@ -17,6 +17,9 @@
 #   * lsa_fluxg:
 #     - Make sure walltime for each job is <= 3 days.
 #     - Make sure each job requested exactly 1 GPU (not 0, not 2)
+#   * all allocations:
+#     - Make sure that there is not another allocation that the user has
+#       access to that the job could be running under.
 #
 
 INSTALL_ROOT = '/home/software/rhel6/lsa/flux-utils';
@@ -28,6 +31,7 @@ site.addsitedir( "%s/lib/python2.6/site-packages/" % INSTALL_ROOT )
 import sys
 import os
 import re
+import string
 import time
 import pwd
 import subprocess
@@ -60,6 +64,9 @@ walltime_conv = [ 1, 60, 3600, 86400 ]
 # where to send reports; notificatons to users are also cc:'d to this address
 admin_email = 'lsait-ars-hpc-staff@umich.edu'
 
+
+user_accounts = defaultdict( list ) # user_accounts['bjensen'] = [ 'lsa_flux', 'stats_flux', 'FluxTraining_flux' ]
+account_info = defaultdict( dict ) # account_info['stats_flux'] = { 'maxproc': 30, 'maxmem': 128000000 }   maxmem is in KB
 
 current_user = pwd.getpwuid( os.geteuid() ).pw_name
 
@@ -102,7 +109,37 @@ class Capturing( list ):
         sys.stdout = self._stdout
 
 
+
+def get_account_info():
+    pipe = subprocess.Popen( [ '/opt/moab/bin/mdiag', '-a' ], stdout=subprocess.PIPE )
+    alloc = 'default_flux' # placeholder for un-used allocation
+    for line in pipe.stdout:
+        m = re.search( r'^([a-zA-Z0-9_]+)\s', line )
+        if m:
+            alloc = m.group(1)
+        if alloc == 'default_flux' or alloc in accounts:
+            continue
+        m = re.search( r'MAXPROC=(\d+)', line )
+        if m:
+            maxproc = int( m.group(1) )
+            account_info[alloc]['maxproc'] = maxproc
+        m = re.search( r'MAXMEM=(\d+)', line )
+        if m:
+            maxmem = int( m.group(1) ) * 1024  # in KB
+            account_info[alloc]['maxmem'] = maxmem
+        m = re.search( r'Users:\s+(\S+)', line )
+        if m:
+            users = m.group(1)
+            for u in string.split( users, ',' ):
+                user_accounts[ u ].append( alloc )
+    pipe.stdout.close()
+    pipe.wait()
+
+
+
 def main( args ):
+
+    get_account_info()
 
     warnings = defaultdict( list )
     flux_usage = defaultdict( dict )
@@ -238,6 +275,26 @@ def main( args ):
                 warnings[user].append(msg)
             if gpus > 1:
                 msg = "%s job %s is using too many GPUs (%d of a maximum of 1)" % ( user, id, gpus )
+                warnings[user].append(msg)
+
+        #
+        # Check to see if the user has another allocation they could use
+        # instead:
+        #
+
+        if user in user_accounts:
+            better = []
+            for a in user_accounts[user]:
+                # Types of the account have to match unless it's a Standard
+                # Flux job and the user has a FluxM alllocation available
+                if account[-1] != a[-1] and not (account[-1] == 'x' and a[-1] == 'm'):
+                    continue
+                a_maxproc = account_info[a].get( 'maxproc', 0 )
+                a_maxmem = account_info[a].get( 'maxmem', 0 )
+                if cores > 0 and mem > 0 and cores <= a_maxproc and mem <= a_maxmem:
+                    better.append(a)
+            if better:
+                msg = "%s job %s should be running under %s instead of %s" % ( user, id, " or ".join(better), account )
                 warnings[user].append(msg)
 
         #
