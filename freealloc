@@ -41,7 +41,7 @@ def main():
     maxproc = -1
     maxmem = -1 # memory in kb
     mdiag = subprocess.Popen(
-        [ '/home/software/rhel6/moab/bin/mdiag', '-a', args.allocation_name ],
+        [ '/opt/moab/bin/mdiag', '-a', args.allocation_name ],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
         )
     output = mdiag.stdout.readlines()
