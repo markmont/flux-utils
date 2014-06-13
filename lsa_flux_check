@@ -144,6 +144,9 @@ def main( args ):
     warnings = defaultdict( list )
     flux_usage = defaultdict( dict )
     flux_runningjobcount_byuser = defaultdict( dict )
+    flux_runningcorecount_byuser = defaultdict( dict )
+    flux_runningmemcount_byuser = defaultdict( dict )
+    flux_runningpecount_byuser = defaultdict( dict )
     flux_runningjobs = defaultdict( list )
 
     flux_cores = dict()
@@ -308,6 +311,9 @@ def main( args ):
 
         flux_usage[account][user] = cm + flux_usage[account].setdefault( user, 0 )
         flux_runningjobcount_byuser[account][user] = 1 + flux_runningjobcount_byuser[account].setdefault( user, 0 )
+        flux_runningcorecount_byuser[account][user] = cores + flux_runningcorecount_byuser[account].setdefault( user, 0 )
+        flux_runningmemcount_byuser[account][user] = mem + flux_runningmemcount_byuser[account].setdefault( user, 0 )
+        flux_runningpecount_byuser[account][user] = pe + flux_runningpecount_byuser[account].setdefault( user, 0 )
         flux_cores[account] += cores
         flux_mem[account] += mem
         flux_pe[account] += pe
@@ -384,10 +390,11 @@ flux-support@umich.edu
 
     if args.details and args.all:
         print ""
+        print "User     Account   Jobs Cores    Memory     PE CM left"
+        print "-------- --------- ---- ----- --------- ------ -------"
         for account in flux_usage:
             for user in flux_usage[account]:
-                msg = "%-8s has %4d %-9s jobs with %7.4f core*months remaining" % ( user, flux_runningjobcount_byuser[account][user], account, flux_usage[account][user] / (30 * 24 * 60 * 60) )
-                if account == 'lsa_flux': msg += " (limit: 4 core*months)"
+                msg = "%-8s %-9s %4d %5s %9s %6.2f %7.4f" % ( user, account, flux_runningjobcount_byuser[account][user], flux_runningcorecount_byuser[account][user], show_memory( flux_runningmemcount_byuser[account][user] ), flux_runningpecount_byuser[account][user], flux_usage[account][user] / (30 * 24 * 60 * 60) )
                 print msg
 
     if args.details:
