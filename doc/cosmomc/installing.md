@@ -1,5 +1,7 @@
 
-# Introduction
+# Installing CosmoMC on Flux
+
+## Introduction
 
 These are the instructions for installing [CosmoMC](http://cosmologist.info/cosmomc/readme.html) on the [Flux High Performance Computing Cluster](http://arc.research.umich.edu/flux-and-other-hpc-resources/flux/) at the University of Michigan.
 
@@ -12,7 +14,7 @@ Separate instructions are available on [how to run CosmoMC on Flux](https://gith
 If you have any questions or encounter problems, please contact [flux-support@umich.edu](mailto:flux-support@umich.edu) for assistance.
 
 
-## Additional notes
+### Additional notes
 
 For generic install instructions for CosmoMC, see http://cosmologist.info/cosmomc/readme.html#Compiling
 
@@ -20,7 +22,7 @@ A relatively recent release of the Intel Fortran compiler is needed to compile C
 
 *NOTE:* The install instructions below use the Enthought Python Distribution (EPD) version of Python; this consideribly simplifies the install since EPD already includes numpy, pylab, matplotlib, cython, h5py, and pyfits.  However, EPD is compiled using non-Intel compilers, which could cause run-time problems for CosmoMC or Planck Likelihood python modules that interface to C libraries. If a CosmoMC or Planck Likelihood Python module fails to run, please report it to [flux-support@umich.edu](mailto:flux-support@umich.edu) together with a test case for reproducing the problem.  It may be possible to adjust the install procedure slightly to work around this problem; in the worst case, we can provide instructions for compiling a special version of Python and the necessary 3rd-party Python modules (numpy, et al.) using the Intel compilers for use by CosmoMC.
 
-# General setup
+## General setup
 
 Log in to one of the Flux login nodes via SSH and verify that your software module setup is close to standard by running the command `module list`  You should see output that is very close to the following:
 
@@ -71,7 +73,7 @@ cd ${COSMOMC_TOP}
 *NOTE:* if you log out of Flux before finishing the install of CosmoMC, you will need to run all of the commands in this section again each time you log in to Flux before resuming the install.
 
 
-# Download and unpack
+## Download and unpack
 
 Make sure you are in the correct directory:
 
@@ -79,7 +81,7 @@ Make sure you are in the correct directory:
 cd ${COSMOMC_TOP}
 ```
 
-## Download CosmoMC directly onto Flux
+### Download CosmoMC directly onto Flux
 
 Fill out the following form to get the download link in the command below: http://cosmologist.info/cosmomc/submit.html
 
@@ -89,7 +91,7 @@ Right click the very first link on the download page (the link says "download"),
 wget PASTE_THE_COPIED_URL_HERE
 ```
 
-## Download the Planck Likelihood code and data
+### Download the Planck Likelihood code and data
 
 You can get updated URLs, if needed, by right-clicking the links at http://www.sciops.esa.int/wikiSI/planckpla/index.php?title=CMB_spectrum_%26_Likelihood_Code&instance=Planck_Public_PLA#Likelihood_4
 
@@ -105,7 +107,7 @@ wget http://pla.esac.esa.int/pla/aio/product-action?COSMOLOGY.FILE_ID=COM_Data_L
 Note that the second to last file above is missing the `.gz` from the end; this is not incorrect.
 
 
-## Download HEALPix
+### Download HEALPix
 
 You can update the URL below by going to http://healpix.sourceforge.net/downloads.php
 
@@ -115,7 +117,7 @@ We specify the output file name using the `-O` option, otherwise the file would 
 wget -O Healpix_3.11_2013Apr24.tar.gz http://sourceforge.net/projects/healpix/files/Healpix_3.11/Healpix_3.11_2013Apr24.tar.gz/download
 ```
 
-## Unpack everything
+### Unpack everything
 
 You should now see the following when you run `ls -l`:
 
@@ -133,7 +135,7 @@ total 1213324
 [markmont@flux-login2 cosmomc-201405a]$ 
 ```
 
-### Unpack all the code
+#### Unpack all the code
 
 Unpacking the Plank Likelihood code will result in a new file, `plc-1.0.tar.bz2` which itself needs to be unpacked.
 
@@ -144,7 +146,7 @@ tar zxf *COM_Code_*
 tar jxf plc-1.0.tar.bz2
 ```
 
-### Unpack the Planck Likelihood data
+#### Unpack the Planck Likelihood data
 
 The Planck Likelihood data needs to be installed inside the Planck likelihood code directory, under the subdirectory `share/clik`
 
@@ -161,7 +163,7 @@ done
 ```
 
 
-# Install Planck Likihood code and data
+## Install Planck Likihood code and data
 
 The Planck Likelihood code and data is used to compute the likelihood of a model that predicts the CMB power spectra, lensing power spectrum, together with some foreground and some instrumental parameters. The data files are built primarily from the Planck mission results, but include also some results from the WMAP-9 data release.
 
@@ -194,7 +196,7 @@ python ./waf configure --icc --ifort --install_all_deps --hdf5 --hdf5_install --
 python ./waf install 2>&1 | tee log.install
 ```
 
-# Install HEALPix
+## Install HEALPix
 
 In the future, we might want to install PGPLOT before installing HEALPix.  Currently, HEALPix is getting installed without PGPLOT support.  For assistance, please contact [flux-support@umich.edu](mailto:flux-support@umich.edu).
 
@@ -324,7 +326,7 @@ make test 2>&1 | tee log.test
 All 10 tests should succeed.
 
 
-# Install CosmoMC
+## Install CosmoMC
 
 Make the Planck Liklihood data accessible to CosmoMC.  When you run the `ls click` command below, make sure you see the various data sets (actspt, CAMspec, commander, lowlike, and liening_likelihood).
 
@@ -383,7 +385,7 @@ cd ${COSMOMC_TOP}/cosmomc
 make all cfitsio=${CLIKPATH} 2>&1 | tee log.make
 ```
 
-# Create setup script
+## Create setup script
 
 It will be useful to have a way to easily set up all of the shell environment variables needed to run CosmoMC.  Having this in a separate, dedicated file will allow the set up to be done from where ever it is needed, including from the command line, in PBS scripts, or in shell dot files.
 
@@ -401,7 +403,7 @@ export PATH=${COSMOMC}:${COSMOMC_TOP}/plc-1.0/bin:${PATH}
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${CLIKPATH}/lib
 ```
 
-# Logout
+## Logout
 
 *IMPORTANT!* After you are done building CosmoMC, log out of Flux.  Building CosmoMC has made changes to your shell environment that can cause problems if you immediately attempt to run CosmoMC.  Logging out of Flux and then logging back in will reset these changes and provide you with a clean shell environment from which you can safely run CosmoMC.
 

@@ -1,5 +1,7 @@
 
-# Introduction
+# Running CosmoMC on Flux
+
+## Introduction
 
 These are the instructions for running [CosmoMC](http://cosmologist.info/cosmomc/readme.html) on the [Flux High Performance Computing Cluster](http://arc.research.umich.edu/flux-and-other-hpc-resources/flux/) at the University of Michigan.
 
@@ -12,7 +14,7 @@ The instructions below will walk you through a test run of CosmoMC using the tes
 If you have any questions or encounter problems, please contact [flux-support@umich.edu](mailto:flux-support@umich.edu) for assistance.
 
 
-# Setup
+## Setup
 
 Each time after you log in to Flux, before running CosmoMC or submitting a job that will run CosmoMC, run the following commands.  If you installed CosmoMC in a different place or with a different name than a subdirectory of your home directory named `cosmomc-201405a`, adjust the `source` command below appropriately.
 
@@ -33,7 +35,7 @@ You can avoid the need to run the above commands each time after you log in to F
 
 *NOTE:* Never put `module` commands in your `~/.bash_profile` file, your `~/.bashrc` file, or in your PBS scripts:  they do not work reliably in those places and will cause CosmoMC to fail to run (but only sometimes).
 
-# Parameter file
+## Parameter file
 
 We will be using the `test.ini` parameter file that comes with the CosmoMC code.
 
@@ -44,7 +46,7 @@ cd ${COSMOMC}
 Edit the `test.ini` file and change the `action` parameter from 4 to 2.  This will cause CosmoMC to perform minimization instead of just quickly testing likelihoods; quickly testing liklihoods requires only 3 seconds and does not make an interesting test on an HPC cluster.  Minimization on this test data, in contrast, will take a little under 2 hours when using 16 cores on Flux.
 
 
-#PBS script
+##PBS script
 
 ```bash
 cd ${COSMOMC}
@@ -108,7 +110,7 @@ CosmoMC requires a PBS script that is a little more complicated than the typical
 * The line `#PBS -v OMP_NUM_THREADS=4` tells OpenMP how many threads to start for each CosmoMC process.  The number must be the same as the number specified for `tpn`.
 * When running CosmoMC, we do not use the `-np 4` option as described in the CosmoMC documentation, and instead use `--map-by ppr:1:node` to ensure that we get one CosmoMC process started on each of the job's nodes.  This reduces the chance of problems and eliminates the need to update the `mpirun` command each time the number of cores changes in the PBS resource request line.
 
-# Submit the job
+## Submit the job
 
 Submit the job by running the following command from the CosmoMC directory:
 
