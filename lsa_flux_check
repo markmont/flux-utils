@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # lsa_flux_check - determine if a user of lsa_flux, lsa_fluxm, or lsa_fluxg
 # is complying with the usage limits as documented at
@@ -118,6 +118,8 @@ def get_account_info():
         if m:
             alloc = m.group(1)
         if alloc == 'default_flux' or alloc in accounts:
+            continue
+        if re.search( r'^fluxtraining_flux', alloc, re.I ):
             continue
         m = re.search( r'MAXPROC=(\d+)', line )
         if m:
