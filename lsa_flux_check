@@ -2,7 +2,7 @@
 #
 # lsa_flux_check - determine if a user of lsa_flux, lsa_fluxm, or lsa_fluxg
 # is complying with the usage limits as documented at
-# https://sites.google.com/a/umich.edu/flux-support/support-for-users/lsa_flux
+# http://arc.research.umich.edu/flux-and-other-hpc-resources/flux/using-flux/lsas-public-flux-allocation/
 #
 # Note: this script ONLY checks the usage limits that are not automatically
 # enforced by Moab.
@@ -355,7 +355,7 @@ For more information on the LSA public Flux allocations' usage
 policies, together with information on how to stay within the usage
 limits, please see
 
-https://sites.google.com/a/umich.edu/flux-support/support-for-users/lsa_flux
+http://arc.research.umich.edu/flux-and-other-hpc-resources/flux/using-flux/lsas-public-flux-allocation/
 
 This policy is intended to help ensure the fair sharing of LSA's
 public Flux allocations.  People whose job submissions do not adhere
