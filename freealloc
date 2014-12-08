@@ -137,10 +137,12 @@ def main():
 
     cores_avail = maxproc - total_cores
     if cores_avail < 0: cores_avail = 0
+    mem_avail = maxmem - total_mem
+    if mem_avail < 0: mem_avail = 0
 
     if args.jobs: print ""
     print "%s%d of %d core%s in use, %d %score%s available " % ( 'AT LEAST ' if uncertain else '', total_cores, maxproc, '' if maxproc == 1 else 's', cores_avail, 'OR FEWER ' if uncertain else '', '' if cores_avail == 1 else 's' )
-    print "%s%s of %s memory in use, %s %smemory available " % ( 'AT LEAST ' if uncertain else '', show_memory( total_mem ), show_memory( maxmem ), show_memory( maxmem - total_mem ), 'OR LESS ' if uncertain else '' )
+    print "%s%s of %s memory in use, %s %smemory available " % ( 'AT LEAST ' if uncertain else '', show_memory( total_mem ), show_memory( maxmem ), show_memory( mem_avail ), 'OR LESS ' if uncertain else '' )
 
 
 if __name__ == "__main__":
