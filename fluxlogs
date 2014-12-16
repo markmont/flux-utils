@@ -96,11 +96,16 @@ for my $log (@$logs) {
         my $entry = $log->{'_source'};
         my $timestamp = $entry->{'@timestamp'}; # e.g., 2014-12-15T08:00:55.362-05:00
         $timestamp = substr( $timestamp, 0, 23 ); # get rid of TZ offset
-        my $type = defined( $entry->{'type'} ) ? $entry->{'type'} : 'unknown';
         substr( $timestamp, 10, 1 ) = ' '; # Replace T with space
+        my $type = defined( $entry->{'type'} ) ? $entry->{'type'} : 'unknown';
+        if ( $type eq 'syslog' ) {
+            $type = $entry->{'program'} if defined( $entry->{'program'} );
+        } else {
+            $type =~ s/log$//;
+        }
         if ( defined( $entry->{'event'} ) ) {
             my $message;
-            if ( $type eq 'pbsacctlog' ) {
+            if ( $type eq 'pbsacct' ) {
                 # 'event' does not contain all the info, use 'message' instead
                 $message = $entry->{'message'};
                 # remove the date
