@@ -1,0 +1,113 @@
+#!/usr/bin/perl -wT
+#
+#  fluxlogs
+#
+#  Retrieves log file entries for a job from Elasticsearch.  Usage:
+#
+#  fluxlogs --days=7 job_id
+#
+#  If not specified, days defaults to 1 which will retrieve logs from
+#  today's partial log file plus yesterday's full log file.  Legal values
+#  for days ranges from 0 to 59.
+#
+
+use strict;
+use warnings;
+
+
+BEGIN {
+    push( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/lib64/perl5' );
+    push( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/share/perl5' );
+    %ENV = (); # for security
+}
+
+use Search::Elasticsearch;
+use Getopt::Long;
+use Data::Dumper;
+
+my $opt_days = 1;
+my $opt_help = 0;
+
+my $result = GetOptions(
+  'days=i' => \$opt_days,
+  'help'   => \$opt_help,
+  );
+if ( ! $result || $opt_help || scalar( @ARGV ) != 1 ) {
+    print STDERR "usage: \n";
+    print STDERR "  $0 [--days=N] JOB-NUMBER\n\n";
+    print STDERR "  optional arguments:\n";
+    print STDERR "    -h, --help   show this help message and exit\n";
+    print STDERR "    --days=N     search the most recent N days of logs (default: 1)\n";
+    exit( $opt_help ? 0 : 1 );
+}
+
+if ( $opt_days < 0 || $opt_days > 59 ) {
+    print STDERR "$0: days must be in the range 0..59\n";
+    exit( 1 );
+}
+
+my $job_id = $ARGV[0];
+$job_id =~ s/\.nyx\.engin\.umich\.edu\s*$//;
+if ( $job_id !~ /^\d+$/ ) {
+    print STDERR "$0: bad job id\n";
+    exit( 1 );
+}
+
+my $d = $opt_days + 1;
+my $t = time();
+my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
+my $indices = sprintf( 'logstash-joblogs-%04d.%02d.%02d', $year + 1900,
+    $mon + 1, $mday );
+$d--;
+while ( $d > 0 ) {
+    $t -= 86400;
+    ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
+    $indices = sprintf( 'logstash-joblogs-%04d.%02d.%02d,', $year + 1900,
+        $mon + 1, $mday ) . $indices;
+    $d--;
+}
+print $indices . "\n";
+
+my $e = Search::Elasticsearch->new( nodes => 'flux-es.engin.umich.edu:9200' );
+
+my $results = $e->search(
+    index => $indices,
+    body  => {
+        'size' => 10000,
+        'sort' => [ { '@timestamp' => { 'order' => 'asc' } } ],
+        query => {
+            'query_string' => {
+                # Match any of the following:
+                #   14467816.nyx.engin.umich.edu
+                #   job 14467816
+                #   Job '14467816'
+                #   job:14467816
+                # Note that the specific results we are relying on depend on
+                # the elasticsearch analyser chosen for the index.
+                'query' => "\"${job_id}.nyx.engin.umich.edu\" OR \"job ${job_id}\""
+            }
+        }
+    }
+);
+#print Dumper($results) . "\n";
+
+my $logs = $results->{'hits'}->{'hits'};
+for my $log (@$logs) {
+    if ( defined( $log->{'_source'} ) ) {
+        my $entry = $log->{'_source'};
+        my $timestamp = $entry->{'@timestamp'}; # e.g., 2014-12-15T08:00:55.362-05:00
+        $timestamp = substr( $timestamp, 0, 23 ); # get rid of TZ offset
+        my $type = defined( $entry->{'type'} ) ? $entry->{'type'} : 'unknown';
+        $type =~ s/log$//;
+        substr( $timestamp, 10, 1 ) = ' '; # Replace T with space
+        if ( defined( $entry->{'event'} ) ) {
+            print "$timestamp $type " . $entry->{'event'} . "\n";
+        } else {
+            print 'NO EVENT: ' . Dumper( $entry ) . "\n";
+        }
+    } else {
+            print 'NO ENTRY: ' . Dumper( $log ) . "\n";
+    }
+}
+#print Dumper($logs) . "\n";
+

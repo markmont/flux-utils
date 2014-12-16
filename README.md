@@ -30,6 +30,14 @@ SYNOPSIS
     gpujobinfo
 
 
+`fluxlogs` - retrieves log entries for a job
+
+    fluxlogs [--days N] job_id
+
+    optional arguments:
+      -h, --help   show this help message and exit
+      --days N     search the most recent N days of logs (default: 1)
+
 
 INSTALLATION
 ============
@@ -39,6 +47,7 @@ INSTALLATION
 * [TORQUE](http://www.adaptivecomputing.com/products/open-source/torque/)
 * [python-daemon](https://pypi.python.org/pypi/python-daemon)
 * argparse (included with Python 2.7 and later, and with Python 3.2 and later)
+* `fluxlogs` requires Perl 5 and `cpan`
 
 The following commands are very rough and are specific to Flux:
 
@@ -49,7 +58,7 @@ cd /usr/flux/software/src/lsa/flux-utils
 git clone https://github.com/markmont/flux-utils.git
 cd flux-utils
 
-INSTALL_DIR=/home/software/rhel6/lsa/flux-utils
+export INSTALL_DIR=/usr/cac/rhel6/lsa/flux-utils
 mkdir -p ${INSTALL_DIR}/lib/python2.6/site-packages/
 
 PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
@@ -62,18 +71,18 @@ PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
   2>&1 | tee -a log.install
 
 
-mkdir /home/software/rhel6/lsa/Modules/modulefiles/flux-utils/
-cp -r /home/software/rhel6/lsa/Modules/modulefiles/pgplot/* \
-  /home/software/rhel6/lsa/Modules/modulefiles/flux-utils/
-cd /home/software/rhel6/lsa/Modules/modulefiles/flux-utils
+mkdir /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/
+cp -r /usr/cac/rhel6/lsa/Modules/modulefiles/pgplot/* \
+  /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/
+cd /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils
 mv pgplot.inc.tcl flux-utils.inc.tcl
 mv 5.2.2/g77 1
 rmdir 5.2.2
 
-vi /home/software/rhel6/lsa/Modules/modulefiles/flux-utils/flux-utils.inc.tcl
+vi /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/flux-utils.inc.tcl
    # Make any changes needed
 
-vi /home/software/rhel6/lsa/Modules/modulefiles/flux-utils/1
+vi /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/1
    # Make any changes needed
 
 
@@ -81,12 +90,39 @@ cp BUILD_NOTES-flux-utils ${INSTALL_DIR}
 
 # Set permissions so that lsaswadm can administer:
 for d in ${INSTALL_DIR} \
-  /home/software/rhel6/lsa/Modules/modulefiles/flux-utils \
+  /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils \
   /usr/flux/software/src/lsa/flux-utils ; do
   chgrp -R lsaswadm $d
   chmod -R g+rwX,o+rX $d
   find $d -type d | xargs chmod g+s
 done
+
+```
+
+To set up `fluxlogs`:
+
+```bash
+
+export INSTALL_DIR=/usr/cac/rhel6/lsa/flux-utils
+
+rm -rf ~/.cpan
+script cpan-setup.log
+  perl -MCPAN -e shell
+    # if it asks you if you want it to configure as much as possible, say "yes"
+    o conf makepl_arg PREFIX=/usr/cac/rhel6/lsa/flux-utils/perl5
+    o conf mbuildpl_arg "--prefix /usr/cac/rhel6/lsa/flux-utils/perl5"
+    o conf prerequisites_policy follow
+    o conf build_requires_install_policy yes
+    o conf commit
+    quit
+exit
+
+script cpan-elasticsearch.log
+  export PERL5LIB=${INSTALL_DIR}/lib64/perl5:${INSTALL_DIR}/share/perl5
+  cpan
+    install Search::Elasticsearch
+    quit
+exit
 
 ```
 
