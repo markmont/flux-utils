@@ -97,12 +97,23 @@ for my $log (@$logs) {
         my $timestamp = $entry->{'@timestamp'}; # e.g., 2014-12-15T08:00:55.362-05:00
         $timestamp = substr( $timestamp, 0, 23 ); # get rid of TZ offset
         my $type = defined( $entry->{'type'} ) ? $entry->{'type'} : 'unknown';
-        $type =~ s/log$//;
         substr( $timestamp, 10, 1 ) = ' '; # Replace T with space
         if ( defined( $entry->{'event'} ) ) {
-            print "$timestamp $type " . $entry->{'event'} . "\n";
+            my $message;
+            if ( $type eq 'pbsacctlog' ) {
+                # 'event' does not contain all the info, use 'message' instead
+                $message = $entry->{'message'};
+                # remove the date
+                $message =~ s/^\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2};//;
+            }
+            else {
+                # normally we use 'event' because it has less noise than
+                # 'message'
+                $message = $entry->{'event'};
+            }
+            print "$timestamp $type $message\n";
         } else {
-            print 'NO EVENT: ' . Dumper( $entry ) . "\n";
+            print 'NO MESSAGE ' . Dumper( $entry ) . "\n";
         }
     } else {
             print 'NO ENTRY: ' . Dumper( $log ) . "\n";
