@@ -118,7 +118,7 @@ script cpan-setup.log
 exit
 
 script cpan-elasticsearch.log
-  export PERL5LIB=${INSTALL_DIR}/lib64/perl5:${INSTALL_DIR}/share/perl5
+  export PERL5LIB=${INSTALL_DIR}/perl5/lib64/perl5:${INSTALL_DIR}/perl5/share/perl5
   cpan
     install Search::Elasticsearch
     quit

@@ -66,7 +66,6 @@ while ( $d > 0 ) {
         $mon + 1, $mday ) . $indices;
     $d--;
 }
-print $indices . "\n";
 
 my $e = Search::Elasticsearch->new( nodes => 'flux-es.engin.umich.edu:9200' );
 
