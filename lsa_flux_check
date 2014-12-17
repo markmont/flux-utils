@@ -13,7 +13,11 @@
 #   * lsa_fluxm:
 #     - Make sure walltime for each job is <= 1 week.
 #     - Make sure each job is not capable of being run under lsa_flux:
-#       cores > 24 or cores per node > 16 or mem > 96 GB or mem per node > 64 GB
+#       cores > 24 or cores per node > 20 or mem > 96 GB or mem per node > 80 GB
+#       (note that the 20 core Standard Flux nodes have 96 GB RAM, not 80.  But
+#       we loosen the check for lsa_fluxm to be 80 so users don't need to
+#       request more than 4 GB / core when using lsa_flux unless they choose
+#       to do so).
 #   * lsa_fluxg:
 #     - Make sure walltime for each job is <= 3 days.
 #     - Make sure each job requested exactly 1 GPU (not 0, not 2)
@@ -250,7 +254,7 @@ def main( args ):
         if account == 'lsa_fluxm' and \
             cores > 0 and cores <= 24 and mem > 0 and mem <= 96 * 1024 * 1024:
             # This job can run under lsa_flux, if it has the right geometry:
-            if cores <= 16 and mem <= 64 * 1024 * 1024:
+            if cores <= 20 and mem <= 80 * 1024 * 1024:
                 # The job can definitely fit on a single Standard Flux node:
                 msg = "%s job %s looks like it should be running under lsa_flux instead of lsa_fluxm" % ( user, id )
                 warnings[user].append(msg)
@@ -258,7 +262,7 @@ def main( args ):
                 # The job can fit on more than 1 Standard Flux node:
                 msg = "%s job %s looks like it should be running under lsa_flux instead of lsa_fluxm" % ( user, id )
                 warnings[user].append(msg)
-            elif maxppn > 0 and maxppn <= 16:
+            elif maxppn > 0 and maxppn <= 20:
                 # The job can fit on more than 1 Standard Flux node:
                 msg = "%s job %s looks like it should be running under lsa_flux instead of lsa_fluxm" % ( user, id )
                 warnings[user].append(msg)
