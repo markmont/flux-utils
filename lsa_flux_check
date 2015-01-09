@@ -294,12 +294,22 @@ def main( args ):
         if user in user_accounts:
             better = []
             for a in user_accounts[user]:
-                # Types of the account have to match unless it's a Standard
-                # Flux job and the user has a FluxM alllocation available
-                if account[-1] != a[-1] and not (account[-1] == 'x' and a[-1] == 'm'):
-                    continue
+                if account[-1] != a[-1]:
+                    # Types of account do not match.
+                    # Therefore do not consider the other accounts that
+                    # the user has access to to be a better match unless
+                    # the job is running under Standard Flux and the user
+                    # user has a FluxM, FluxOD, or FluxOE account available.
+                    if account[-1] != 'x':
+                        continue # job is not running under Standard Flux
+                    if a[-1] != 'm' and a[-2] != 'od' and a[-2] != 'oe':
+                        continue # user has no Flux{M,OD,OE} account available
+                # FluxOD accounts don't have MAXPROC, so assume 1500
                 a_maxproc = account_info[a].get( 'maxproc', 0 )
-                a_maxmem = account_info[a].get( 'maxmem', 0 )
+                if a_maxproc == 0 and a[-2] == 'od':
+                    a_maxproc = 1500
+                # FluxOE accounts don't have a MAXMEM, so assume 4 GB/core
+                a_maxmem = account_info[a].get( 'maxmem', a_maxproc * 4096 * 1024 )
                 if cores > 0 and mem > 0 and cores <= a_maxproc and mem <= a_maxmem:
                     better.append(a)
             if better:
