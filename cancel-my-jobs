@@ -1,0 +1,48 @@
+#!/bin/bash
+#
+#  cancel-my-jobs
+#
+#  Delete all jobs belonging to a user (including running jobs).
+#
+#  Usage:
+#    cancel-my-jobs [--help]
+#
+#  Possible future enhancements:
+#    - Rewrite in Python for better argument parsing and security.
+#    - Add "--dry-run|-n" option to only show what would be done, not do it.
+#    - Add "--running" option to only delete running jobs.
+#    - Add "--not-running" option to delete jobs which are not yet running.
+#
+
+if [ $# -ne 0 ] ; then
+  echo "Usage:"
+  echo "  $0 [--help]"
+  echo "Deletes all jobs belonging to the user who runs it (including running jobs)."
+  exit 1
+fi
+
+# Specify "-s HQRTW" so that we don't try to delete jobs that have
+# already been deleted and are in state C; this avoids the user getting
+# error messages if they run this script multiple times within a short
+# period.
+JOBS=`qselect -u ${USER} -s HQRTW`
+if [ $? -ne 0 ] ; then
+  echo "Unable to query jobs for user ${USER}."
+  exit 2
+fi
+if [ -z "${JOBS}" ] ; then
+  echo "${USER} does not have any jobs to delete."
+  exit 0
+fi
+
+echo "Attempting to delete the following jobs belonging to ${USER}:"
+for job in ${JOBS} ; do
+  echo "  ${job}"
+done
+echo ${JOBS} | xargs qdel
+if [ $? -ne 0 ] ; then
+  echo "An error occurred when trying to delete the jobs."
+  echo "Some or all jobs may not have been deleted."
+  exit 3
+fi
+
