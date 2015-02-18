@@ -1,0 +1,114 @@
+diff -up pvm3/conf/LINUX64.def.flux pvm3/conf/LINUX64.def
+--- pvm3/conf/LINUX64.def.flux	2008-12-17 15:41:04.000000000 -0500
++++ pvm3/conf/LINUX64.def	2015-02-18 16:53:22.158385000 -0500
+@@ -32,13 +32,13 @@
+ SHAREDCFLAGS =
+ SHAREDLDFLAGS = -shared
+ #
+-ARCHCFLAGS	=	-DSYSVSIGNAL -DNOWAIT3 -DRSHCOMMAND=\"/usr/bin/rsh\" \
++ARCHCFLAGS	=	-DSYSVSIGNAL -DNOWAIT3 -DHASREADLINE -DTTYDIS=12 -DRSHCOMMAND=\"flux-pvm-run" \
+ 				-DNEEDENDIAN -DFDSETNOTSTRUCT -DHASERRORVARS \
+ 				-DHASSTDLIB -DCTIMEISTIMET -DSYSERRISCONST -DNOTMPNAM \
+ 				-DSYSVSTR -DUSESTRERROR $(SHAREDCFLAGS)
+ ARCHDLIB	=
+ ARCHDOBJ	=
+-ARCHLIB		=
++ARCHLIB		=	-lreadline
+ HASRANLIB	=	t
+ AR			=	ar
+ PVM_ARCH	=	LINUX64
+diff -up pvm3/examples/hello.c.flux pvm3/examples/hello.c
+--- pvm3/examples/hello.c.flux	2009-01-22 20:12:48.000000000 -0500
++++ pvm3/examples/hello.c	2015-02-18 16:50:45.394766000 -0500
+@@ -38,21 +38,36 @@ static char rcsid[] =
+ 
+ main()
+ {
+-	int cc, tid;
++	int cc, i, bufid, info, len, tag, tid;
+ 	char buf[100];
++        int child[16];
+ 
+ 	printf("i'm t%x\n", pvm_mytid());
+ 
+-	cc = pvm_spawn("hello_other", (char**)0, 0, "", 1, &tid);
++	cc = pvm_spawn("hello_other", (char**)0, 0, "", 16, child);
++        for (i = 0; i < 16; i++)  {
++            if (child[i] < 0) /* print the error code in decimal*/
++                printf(" %d", child[i]);
++            else  /* print the task id in hex */
++                printf("t%x\t", child[i]);
++        }
++        putchar('\n');
++
++	if (cc > 0) {
++                printf( "started %d children\n", cc );
++                for ( i = 0 ; i < cc ; i++ ) {
++		    bufid = pvm_recv(-1, -1);
++                    if (bufid < 0) { pvm_perror( "calling recv" ); }
++		    info = pvm_bufinfo(bufid, &len, &tag, &tid);
++                    if (info < 0) pvm_perror("calling pvm_bufinfo");
++		    info = pvm_upkstr(buf);
++                    if (info < 0) pvm_perror("calling pvm_ipkstr");
++		    printf("from t%x: %s\n", tid, buf);
++                }
+ 
+-	if (cc == 1) {
+-		cc = pvm_recv(-1, -1);
+-		pvm_bufinfo(cc, (int*)0, (int*)0, &tid);
+-		pvm_upkstr(buf);
+-		printf("from t%x: %s\n", tid, buf);
+-
+-	} else
++	} else {
+ 		printf("can't start hello_other\n");
++        }
+ 
+ 	pvm_exit();
+ 	exit(0);
+diff -up pvm3/examples/hello_other.c.flux pvm3/examples/hello_other.c
+--- pvm3/examples/hello_other.c.flux	2009-01-22 20:12:48.000000000 -0500
++++ pvm3/examples/hello_other.c	2015-02-18 16:50:45.423763000 -0500
+@@ -39,6 +39,7 @@ static char rcsid[] =
+ #else
+ #include <strings.h>
+ #endif
++#include <unistd.h>
+ #include "pvm3.h"
+ 
+ main()
+@@ -48,6 +49,7 @@ main()
+ 
+ 	ptid = pvm_parent();
+ 
++        sleep(getpid() % 10);
+ 	strcpy(buf, "hello, world from ");
+ 	gethostname(buf + strlen(buf), 64);
+ 
+diff -up pvm3/lib/flux-pvm-run.flux pvm3/lib/flux-pvm-run
+--- pvm3/lib/flux-pvm-run.flux	2015-02-18 16:50:45.442765000 -0500
++++ pvm3/lib/flux-pvm-run	2015-02-18 16:50:45.449783000 -0500
+@@ -0,0 +1,23 @@
++#!/bin/sh
++# This script is necessary because pvmd3 exec()'s things like this:
++#   av[0]="mpirun"
++#   av[1]="-pernode"
++#   av[2]="-H"
++#   av[3]="nyx5617"
++#   av[4]="$PVM_ROOT/lib/pvmd -s -d0xffff -nnyx5617 1 0aa40764:cf33 4080 20aa40617:0000" 
++# ...but, unlike sshd, mpirun doesn't run its command through a shell for
++# variable # substitution and parsing into individual options, leading to the
++# following error:
++#   $PVM_ROOT/lib/pvmd -s -d0xffff -nnyx5617 1 0aa40764:cf33 4080 20aa40617:0000: command not found
++# To solve this, we have this shell script break up the command and perform
++# shell variable substitution.
++
++# mpirun won't work with the Ethernet-over-Infiniband interfaces, so use
++# the regular network interface instead:
++host=`echo $1 | sed 's/-hs$//'`
++shift
++# expand remaining arguments:
++args=`eval echo "$@"`
++# run the command on the correct node:
++exec mpirun -pernode -H $host $args
++
