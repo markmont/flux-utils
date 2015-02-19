@@ -72,11 +72,11 @@ tar zxf pvm3.4.6.tgz
 
 ### Make Flux-specific modifications
 
-Save [the patch for making PVM work on Flux](https://github.com/markmont/flux-utils/blob/master/doc/pvm3-flux.patch) to the file `${XSTAR_TOP}/pvm3-flux.patch` and then apply it:
+Save [the patch for making PVM work on Flux](https://github.com/markmont/flux-utils/blob/master/doc/pvm/pvm3-flux.patch) to the file `${XSTAR_TOP}/pvm3-flux.patch` and then apply it:
 
 ```bash
 cd ${XSTAR_TOP}
-wget https://raw.githubusercontent.com/markmont/flux-utils/master/doc/pvm3-flux.patch
+wget https://raw.githubusercontent.com/markmont/flux-utils/master/doc/pvm/pvm3-flux.patch
 cd pvm3
 patch -p 1 -b -z .flux < ../pvm3-flux.patch
 chmod 755 lib/flux-pvm-run
@@ -116,10 +116,10 @@ Log out of Flux and log back in to get the change to `~/.bashrc` to take effect.
 
 ## Batch job
 
-Download [the example PBS script for testing PVM](https://github.com/markmont/flux-utils/blob/master/doc/pvm-test.pbs):
+Download [the example PBS script for testing PVM](https://github.com/markmont/flux-utils/blob/master/doc/pvm/pvm-test.pbs):
 
 ```bash
-wget https://raw.githubusercontent.com/markmont/flux-utils/master/doc/pvm-test.pbs
+wget https://raw.githubusercontent.com/markmont/flux-utils/master/doc/pvm/pvm-test.pbs
 ```
 
 Edit the PBS script and make the following changes:
