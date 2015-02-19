@@ -179,7 +179,7 @@ pvmd -n${PVMD_MASTER} pvm.hosts.${PVM_VMID} \
 
 # Compile the example:
 cd pvm3/examples
-aimk hello hello_other
+aimk hello helloh hello_other
 
 # Run the example:
 helloh
