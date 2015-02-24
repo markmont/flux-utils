@@ -1,0 +1,71 @@
+#!/bin/sh
+####  PBS preamble
+
+#PBS -N pvm_test
+
+# Change "bjensen" to your uniqname:
+#PBS -M bjensen@umich.edu
+#PBS -m abe 
+
+# Change the number of cores (ppn=1), amount of memory per core, and walltime:
+#PBS -l procs=16,tpn=4,pmem=1000mb,walltime=15:00
+#PBS -j oe 
+#PBS -V
+
+# Change "lsa_flux" to the name of your Flux allocation:
+#PBS -A lsa_flux
+#PBS -q flux
+#PBS -l qos=flux
+
+####  End PBS preamble
+
+echo "Flux job started: " `date`
+
+#  Show list of CPUs you ran on, if you're running under PBS
+if [ -n "$PBS_NODEFILE" ]; then
+  echo "This job ran on the following nodes:"
+  cat $PBS_NODEFILE
+  echo ""
+fi
+
+#  Change to the directory you submitted from
+if [ -n "$PBS_O_WORKDIR" ]; then cd $PBS_O_WORKDIR; fi
+
+#  Put your job commands here:
+
+#
+# Set up PVM:
+#
+
+export PVM_VMID=`echo ${PBS_JOBID} | cut -d. -f 1`
+export PVMD_MASTER=`hostname -s | sed 's/$/-hs/'`
+
+echo "* id=${PVM_VMID} wd=${PBS_O_WORKDIR}" > pvm.hosts.${PVM_VMID}
+sort ${PBS_NODEFILE} | uniq | sed 's/$/-hs/' >> pvm.hosts.${PVM_VMID}
+
+mpirun -pernode bash -c "rm -f /tmp/pvm*.`id -u`.${PVM_VMID}"
+
+pvmd -n${PVMD_MASTER} pvm.hosts.${PVM_VMID} \
+  < /dev/null > pvmd.out.${PVM_VMID} 2>&1 &
+sleep 10  # give pvmd plenty of time to start up
+
+#
+# Run our PVM job:
+#
+
+echo "Stating PVM job: " `date`
+helloh
+echo "PVM job finished with exit code $?: " `date`
+
+#
+# Tear down PVM:
+#
+
+echo halt | pvm
+sleep 10  # give pvmd a chance to shut down fully on all nodes
+
+# Grab log files:
+mpirun -pernode bash -c 'cd /tmp ; for i in pvm*.`id -u`.${PVM_VMID} ; do [ -f $i ] && mv $i ${PBS_O_WORKDIR}/$i.`hostname -s` ; done'
+
+echo "Flux job finished: " `date`
+
