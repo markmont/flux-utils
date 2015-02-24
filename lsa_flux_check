@@ -48,6 +48,8 @@ from collections import defaultdict
 
 from torque import *
 
+# scheduled check times (hours of the day):
+scheduled_hours = [ 8, 12, 16, 22 ]
 
 # account name and core counts
 accounts = [ 'lsa_flux', 'lsa_fluxm', 'lsa_fluxg' ]
@@ -467,10 +469,14 @@ if __name__ == "__main__":
         hour = time.localtime().tm_hour
         if sys.stdout.isatty():
             print "Becoming self-submitting job.  Will check twice daily (morning and afternoon)."
-            if hour == 8 or hour == 16: do_scheduled_report( args )
+            if hour in scheduled_hours: do_scheduled_report( args )
         else:
             do_scheduled_report( args )
-        next_hour = 8 if hour < 8 or hour >= 16 else 16
+        next_hour = scheduled_hours[0]
+        for h in scheduled_hours:
+            if h > hour:
+                next_hour = h
+                break
         pipe = subprocess.Popen( [ '/usr/local/torque/bin/qsub', '-N', 'lsa_flux_check', '-V', '-A', 'support_flux', '-q', 'flux', '-M', admin_email, '-m', 'a', '-l', 'procs=1,mem=2gb,walltime=15:00,qos=flux', '-S', '/bin/bash', '-j', 'oe', '-a', '%02d00' % next_hour  ], stdin=subprocess.PIPE )
         pipe.stdin.write( os.path.abspath(inspect.getsourcefile(main) + " --submit" ) )
         pipe.stdin.close()
@@ -481,11 +487,11 @@ if __name__ == "__main__":
             print sys.argv[0] + ": --daemonize can only be used by Flux support staff"
             exit( 1 )
         args.all = args.details = args.mail = True
-        print "Becoming daemon.  Will check twice daily (morning and afternoon)."
+        print "Becoming daemon.  Will check four times daily."
         with daemon.DaemonContext():
             while True:
                 hour = time.localtime().tm_hour
-                if hour == 8 or hour == 16: do_scheduled_report( args )
+                if hour in scheduled_hours: do_scheduled_report( args )
                 time.sleep( 3600 )
     else:
         main( args )
