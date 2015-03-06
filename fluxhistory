@@ -4,7 +4,7 @@
 #
 #  Retrieves historical job information from Elasticsearch.  Usage:
 #
-#  fluxlogs [--days=N] [--user=NAME] [--account=NAME]
+#  fluxhistory [--days=N] [--user=NAME] [--account=NAME]
 #
 #  If not specified, days defaults to 1.  Legal values for days ranges
 #  from 0 to 59.
@@ -47,6 +47,7 @@ my $result = GetOptions(
   'help'   => \$opt_help,
   );
 if ( ! $result || $opt_help || scalar( @ARGV ) != 0 ) {
+    print STDERR "Shows information about jobs that have ended in the past N days.\n\n";
     print STDERR "usage: \n";
     print STDERR "  $0 [--days=N] [--user=NAME] [--account=NAME]\n\n";
     print STDERR "  optional arguments:\n";
@@ -108,7 +109,7 @@ my $results = $e->search(
 );
 #print Dumper($results) . "\n";
 
-print "Job       Name           User     Account         Start time          Exit  Runtime   Memory used\n";
+print "      Job Name           User     Account         Start time          Exit  Runtime   Memory used\n";
 print "--------- -------------- -------- --------------- ------------------- ---- --------- ------------\n";
 #print " 14973284 lsa_flux_check markmont support_flux    2015-03-04 22:06:31    0  00:00:42      26356kb\n";
 
@@ -116,9 +117,6 @@ my $logs = $results->{'hits'}->{'hits'};
 for my $log (@$logs) {
     if ( defined( $log->{'_source'} ) ) {
         my $entry = $log->{'_source'};
-        #my $timestamp = $entry->{'@timestamp'}; # e.g., 2014-12-15T08:00:55.362-05:00
-        #$timestamp = substr( $timestamp, 0, 23 ); # get rid of TZ offset
-        #substr( $timestamp, 10, 1 ) = ' '; # Replace T with space
         my $output = sprintf( "%9s %-14s %-8s %-15s %-19s %4d %9s %12s\n",
             getjobinfo( $entry, 'jobid' ),
             getjobinfo( $entry, 'jobname' ),
