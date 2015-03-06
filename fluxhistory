@@ -71,7 +71,7 @@ if ( $user !~ /^[a-z0-9]{1,16}$/ ) {
     exit( 1 );
 }
 
-if ( $opt_account && $opt_account !~ /^[a-z0-9_]{1,16}$/ ) {
+if ( $opt_account && $opt_account !~ /^[a-z0-9_]{1,32}$/ ) {
     print STDERR "$0: illegal account: ${opt_account}\n";
     exit( 1 );
 }
