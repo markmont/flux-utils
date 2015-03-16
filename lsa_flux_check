@@ -48,6 +48,9 @@ from collections import defaultdict
 
 from torque import *
 
+sys.path.append( INSTALL_ROOT + '/etc' )
+from lsa_flux_check_config import *
+
 # scheduled check times (hours of the day):
 scheduled_hours = [ 8, 12, 16, 22 ]
 
@@ -138,8 +141,10 @@ def get_account_info():
         m = re.search( r'Users:\s+(\S+)', line )
         if m:
             users = m.group(1)
+            ignorelist = ignore_accounts.get( alloc, [] )
             for u in string.split( users, ',' ):
-                user_accounts[ u ].append( alloc )
+                if not u in ignorelist:
+                    user_accounts[ u ].append( alloc )
     pipe.stdout.close()
     pipe.wait()
 
