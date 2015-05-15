@@ -130,6 +130,8 @@ def get_account_info():
             continue
         if re.search( r'^fluxtraining_flux', alloc, re.I ):
             continue
+        if re.search( r'^hpc\d+_flux', alloc, re.I ):
+            continue
         m = re.search( r'MAXPROC=(\d+)', line )
         if m:
             maxproc = int( m.group(1) )
