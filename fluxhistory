@@ -90,7 +90,7 @@ while ( $d > 0 ) {
     $d--;
 }
 
-my $e = Search::Elasticsearch->new( nodes => 'flux-es.engin.umich.edu:9200' );
+my $e = Search::Elasticsearch->new( nodes => 'es.arc-ts.umich.edu:9200' );
 
 my $query;
 if ( $opt_account ) {

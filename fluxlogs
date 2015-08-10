@@ -47,11 +47,12 @@ if ( $opt_days < 0 || $opt_days > 59 ) {
 }
 
 my $job_id = $ARGV[0];
-$job_id =~ s/\.nyx\.engin\.umich\.edu\s*$//;
-if ( $job_id !~ /^\d+$/ ) {
+$job_id =~ s/\.nyx\.arc-ts.umich\.edu\s*$//;
+if ( $job_id !~ /^\d+(\[\d*\])?$/ ) {
     print STDERR "$0: bad job id\n";
     exit( 1 );
 }
+$job_id = quotemeta( $job_id );
 
 my $d = $opt_days + 1;
 my $t = time();
@@ -67,23 +68,23 @@ while ( $d > 0 ) {
     $d--;
 }
 
-my $e = Search::Elasticsearch->new( nodes => 'flux-es.engin.umich.edu:9200' );
+my $e = Search::Elasticsearch->new( nodes => 'es.arc-ts.umich.edu:9200' );
 
 my $results = $e->search(
     index => $indices,
     body  => {
-        'size' => 10000,
+        'size' => 100000,
         'sort' => [ { '@timestamp' => { 'order' => 'asc' } } ],
         query => {
             'query_string' => {
                 # Match any of the following:
-                #   14467816.nyx.engin.umich.edu
+                #   14467816.nyx.arc-ts.umich.edu
                 #   job 14467816
                 #   Job '14467816'
                 #   job:14467816
                 # Note that the specific results we are relying on depend on
                 # the elasticsearch analyser chosen for the index.
-                'query' => "\"${job_id}.nyx.engin.umich.edu\" OR \"job ${job_id}\""
+                'query' => "\"${job_id}.nyx.arc-ts.umich.edu\" OR \"job ${job_id}\""
             }
         }
     }
