@@ -43,7 +43,7 @@ Currently Loaded Modulefiles:
 [markmont@flux-login2 ~]$ 
 ```
 
-If your module list is significantly different from above, adjust it appropriately or contact [flux-support@umich.edu](mailto:flux-support@umich.edu) for assistance.
+If your module list is significantly different from above, adjust it appropriately or contact [hpc-support@umich.edu](mailto:hpc-support@umich.edu) for assistance.
 
 Load the software necessary for compiling XSTAR by running the following commands:
 
@@ -205,5 +205,5 @@ exit # end the interactive Flux job
 
 ## Getting help
 
-If you encounter problems or have questions, please contact [flux-support@umich.edu](mailto:flux-support@umich.edu).
+If you encounter problems or have questions, please contact [hpc-support@umich.edu](mailto:hpc-support@umich.edu).
 
