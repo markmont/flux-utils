@@ -51,7 +51,7 @@ Load the software necessary for compiling XSTAR by running the following command
 module load gcc
 ```
 
-Choose the directory into which you wish to install XSTAR and all of its associated dependencies (of which PVM is one).  In this example, we will choose a sub-directory named `xstar` immediately under our home directory.  If you wish to install XSTAR elsewhere, edit the fist command below appropriately.  Run:
+Choose the directory into which you wish to install XSTAR and all of its associated dependencies (of which PVM is one).  In this example, we will choose a sub-directory named `xstar` immediately under our home directory.  If you wish to install XSTAR elsewhere, edit the first command below appropriately.  Run:
 
 ```bash
 export XSTAR_TOP=~/xstar
