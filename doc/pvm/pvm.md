@@ -100,7 +100,7 @@ ${XSTAR_TOP}/pvm3/lib/aimk all 2>&1 | tee log.aimk
 ${XSTAR_TOP}/pvm3/lib/aimk helloh  # not built by "aimk all"
 ```
 
-Building the shared library is necessary if you will be using PVM with the S-Lang PVM extension or other software that needs to link against PVM.
+Building the shared libraries are necessary if you will be using PVM with the S-Lang PVM extension or other software that needs to link against PVM.
 
 
 ### Configure your environment for running PVM

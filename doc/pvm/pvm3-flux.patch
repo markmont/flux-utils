@@ -1,13 +1,12 @@
 diff -up pvm3/conf/LINUX64.def.flux pvm3/conf/LINUX64.def
 --- pvm3/conf/LINUX64.def.flux	2008-12-17 15:41:04.000000000 -0500
-+++ pvm3/conf/LINUX64.def	2015-10-02 13:03:04.659857000 -0400
++++ pvm3/conf/LINUX64.def	2015-10-02 13:47:15.321006000 -0400
 @@ -29,16 +29,16 @@
  #	and then do a "make clean ; make shared" in $PVM_ROOT.
  #
  # SHAREDCFLAGS = -fpic
 -SHAREDCFLAGS =
--SHAREDLDFLAGS = -shared
-+SHAREDLDFLAGS = -shared -Wl,-soname,libpvm3.so.3
+ SHAREDLDFLAGS = -shared
  #
 -ARCHCFLAGS	=	-DSYSVSIGNAL -DNOWAIT3 -DRSHCOMMAND=\"/usr/bin/rsh\" \
 +CC		=	gcc
@@ -24,7 +23,7 @@ diff -up pvm3/conf/LINUX64.def.flux pvm3/conf/LINUX64.def
  PVM_ARCH	=	LINUX64
 diff -up pvm3/examples/hello.c.flux pvm3/examples/hello.c
 --- pvm3/examples/hello.c.flux	2009-01-22 20:12:48.000000000 -0500
-+++ pvm3/examples/hello.c	2015-10-02 12:18:03.762609000 -0400
++++ pvm3/examples/hello.c	2015-10-02 13:05:33.884503000 -0400
 @@ -38,21 +38,36 @@ static char rcsid[] =
  
  main()
@@ -73,7 +72,7 @@ diff -up pvm3/examples/hello.c.flux pvm3/examples/hello.c
  	exit(0);
 diff -up pvm3/examples/hello_other.c.flux pvm3/examples/hello_other.c
 --- pvm3/examples/hello_other.c.flux	2009-01-22 20:12:48.000000000 -0500
-+++ pvm3/examples/hello_other.c	2015-10-02 12:18:03.793589000 -0400
++++ pvm3/examples/hello_other.c	2015-10-02 13:05:33.891510000 -0400
 @@ -39,6 +39,7 @@ static char rcsid[] =
  #else
  #include <strings.h>
@@ -91,8 +90,8 @@ diff -up pvm3/examples/hello_other.c.flux pvm3/examples/hello_other.c
  	gethostname(buf + strlen(buf), 64);
  
 diff -up pvm3/lib/flux-pvm-run.flux pvm3/lib/flux-pvm-run
---- pvm3/lib/flux-pvm-run.flux	2015-10-02 12:18:03.798586000 -0400
-+++ pvm3/lib/flux-pvm-run	2015-10-02 12:18:03.799609000 -0400
+--- pvm3/lib/flux-pvm-run.flux	2015-10-02 13:05:33.895492000 -0400
++++ pvm3/lib/flux-pvm-run	2015-10-02 13:05:33.896507000 -0400
 @@ -0,0 +1,23 @@
 +#!/bin/sh
 +# This script is necessary because pvmd3 exec()'s things like this:
@@ -117,3 +116,101 @@ diff -up pvm3/lib/flux-pvm-run.flux pvm3/lib/flux-pvm-run
 +# run the command on the correct node:
 +exec mpirun -pernode -H $host $args
 +
+diff -up pvm3/Makefile.aimk.flux pvm3/Makefile.aimk
+--- pvm3/Makefile.aimk.flux	2015-10-02 13:49:43.847671000 -0400
++++ pvm3/Makefile.aimk	2015-10-02 13:50:21.323315000 -0400
+@@ -136,4 +136,7 @@ shared:
+ 	@ echo "building shared in src"
+ 	cd src; ../lib/aimk $(PVMOPTS) install-shared
+ 	@ echo "done building shared in src"
++	@ echo "building shared in pvmgs"
++	cd pvmgs; ../lib/aimk $(PVMOPTS) install-shared
++	@ echo "done building shared in pvmgs"
+ 
+diff -up pvm3/pvmgs/Makefile.aimk.flux pvm3/pvmgs/Makefile.aimk
+--- pvm3/pvmgs/Makefile.aimk.flux	2015-10-02 13:35:40.447611000 -0400
++++ pvm3/pvmgs/Makefile.aimk	2015-10-02 13:53:05.132275000 -0400
+@@ -45,13 +45,15 @@ PROGS		=	$(PVMXDIR)/pvm_gstat$(EXESFX) \
+ 
+ LPROGS		=	$(PVMLDIR)/pvmgs$(EXESFX)
+ 
+-LIBGPVM		=	$(LIBPREFIX)gpvm3.a
++LIBGPVM		=	$(LIBPREFIX)gpvm3
+ 
+ install:	all
+ 
+ install-mpp:	all-mpp
+ 
+-all:	$(DIRS) $(PROGS) $(PVMLDIR)/$(LIBGPVM) $(LPROGS)
++install-shared:	all $(PVMLDIR)/$(LIBGPVM).so
++
++all:	$(DIRS) $(PROGS) $(PVMLDIR)/$(LIBGPVM).a $(LPROGS)
+ 
+ all-mpp:	$(DIRS) $(PROGS) $(PVMLDIR)/$(LIBGPVM)-mpp $(LPROGS)
+ 
+@@ -71,40 +73,48 @@ $(PVMXDIR)/pvmgs$(EXESFX):  pvmgs$(EXESF
+ $(PVMXDIR)/pvmgroups$(EXESFX):  pvmgroups$(EXESFX)
+ 	cp pvmgroups$(EXESFX) $(PVMXDIR)
+ 
+-$(PVMLDIR)/$(LIBGPVM):  $(LIBGPVM)
+-	cp $(LIBGPVM) $(PVMLDIR)
+-	case x$(HASRANLIB) in xt ) echo ranlib; ranlib $(PVMLDIR)/$(LIBGPVM) ;; esac
++$(PVMLDIR)/$(LIBGPVM).a:  $(LIBGPVM).a
++	cp $(LIBGPVM).a $(PVMLDIR)
++	case x$(HASRANLIB) in xt ) echo ranlib; ranlib $(PVMLDIR)/$(LIBGPVM).a ;; esac
+ 
+ $(PVMLDIR)/$(LIBGPVM)-mpp:  $(LIBGPVM)-mpp
+-	cp $(LIBGPVM) $(PVMLDIR)
+-	case x$(HASRANLIB) in xt ) echo ranlib; ranlib $(PVMLDIR)/$(LIBGPVM) ;; esac
++	cp $(LIBGPVM).a $(PVMLDIR)
++	case x$(HASRANLIB) in xt ) echo ranlib; ranlib $(PVMLDIR)/$(LIBGPVM).a ;; esac
+ 	touch $(PVMLDIR)/$(LIBGPVM)-mpp
+ 
+ $(PVMLDIR)/pvmgs$(EXESFX):  pvmgs$(EXESFX)
+ 	cp pvmgs$(EXESFX) $(PVMLDIR)
+ 
+-pvmgroups$(EXESFX):	pvmgroups.o $(LIBGPVM) $(PVMLIBDEP)
+-	$(CC) $(CFLAGS) -o $@ pvmgroups.o $(LIBGPVM) $(LIBS) 
++pvmgroups$(EXESFX):	pvmgroups.o $(LIBGPVM).a $(PVMLIBDEP)
++	$(CC) $(CFLAGS) -o $@ pvmgroups.o $(LIBGPVM).a $(LIBS) 
+ 
+ pvmgs$(EXESFX):	$(DOBJ) $(PVMLIBDEP)
+ 	$(CC) $(CFLAGS) -o $@ $(DOBJ) $(LIBS)
+ 
+-$(LIBGPVM):	$(LOBJ)
+-	rm -f $(LIBGPVM)
+-	$(AR) cr $(LIBGPVM) $(LOBJ)
+-	case x$(HASRANLIB) in xt ) echo ranlib; ranlib $(LIBGPVM) ;; esac
++$(LIBGPVM).a:	$(LOBJ)
++	rm -f $(LIBGPVM).a
++	$(AR) cr $(LIBGPVM).a $(LOBJ)
++	case x$(HASRANLIB) in xt ) echo ranlib; ranlib $(LIBGPVM).a ;; esac
++
++# shared library:
++$(PVMLDIR)/$(LIBGPVM).so: $(LIBGPVM).so
++	cp $(LIBGPVM).so $(PVMLDIR)
++
++$(LIBGPVM).so:   $(REGEXCONF) $(LOBJ)
++	rm -f $(LIBGPVM).so
++	$(CC) $(SHAREDLDFLAGS) -o $(LIBGPVM).so $(LOBJ)
+ 
+ $(LIBGPVM)-mpp:	$(LOBJ)
+-	rm -f $(LIBGPVM)
+-	$(AR_FRONT) cr $(LIBGPVM) $(LOBJ)
+-	case x$(HASRANLIB) in xt ) echo ranlib; ranlib $(LIBGPVM) ;; esac
++	rm -f $(LIBGPVM).a
++	$(AR_FRONT) cr $(LIBGPVM).a $(LOBJ)
++	case x$(HASRANLIB) in xt ) echo ranlib; ranlib $(LIBGPVM).a ;; esac
+ 	touch $(LIBGPVM)-mpp
+ 
+-pvm_gstat$(EXESFX): pvm_gstat.o $(LIBGPVM) $(PVMLIBDEP)
+-	$(CC) $(CFLAGS) -o $@ pvm_gstat.o $(LIBGPVM) $(LIBS)
++pvm_gstat$(EXESFX): pvm_gstat.o $(LIBGPVM).a $(PVMLIBDEP)
++	$(CC) $(CFLAGS) -o $@ pvm_gstat.o $(LIBGPVM).a $(LIBS)
+ 
+ clean:
+-	rm -f $(DOBJ) $(LOBJ) pvmgs$(EXESFX) $(LIBGPVM) \
++	rm -f $(DOBJ) $(LOBJ) pvmgs$(EXESFX) $(LIBGPVM).a $(LIBGPVM).so.3 \
+ 		pvm_gstat.o pvmgroups.o pvm_gstat$(EXESFX) pvmgroups$(EXESFX)
+ 
+ tidy:
