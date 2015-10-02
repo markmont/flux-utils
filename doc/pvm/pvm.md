@@ -110,10 +110,10 @@ Add the following lines near the end of your `~/.bashrc` file:
 ```bash
 if [ -z "${PVM_ROOT}" ] ; then
     export PVM_ROOT=${HOME}/xstar/pvm3
-    export PVM_ARCH=`${PVM_ROOT}/lib/pvmgetarch`
-    export PATH=${PATH}:${PVM_ROOT}/lib
-    export PATH=${PATH}:${PVM_ROOT}/lib/$PVM_ARCH
-    export PATH=${PATH}:${PVM_ROOT}/bin/$PVM_ARCH
+    export PATH=${PVM_ROOT}/lib/${PVM_ARCH}:${PATH}
+    export PATH=${PVM_ROOT}/lib:${PATH}
+    export PATH=${PVM_ROOT}/bin/${PVM_ARCH}:${PATH}
+    export LD_LIBRARY_PATH=${PVM_ROOT}/lib/${PVM_ARCH}:${LD_LIBRARY_PATH}
 fi  
 ```
 
