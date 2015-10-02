@@ -91,10 +91,17 @@ Notable modifications include:
 
 ```bash
 make 2>&1 | tee log.make
+
+make clean
+env SHAREDCFLAGS="-fPIC" make shared 2>&1 | tee log.shared
+
 cd examples
 ${XSTAR_TOP}/pvm3/lib/aimk all 2>&1 | tee log.aimk
 ${XSTAR_TOP}/pvm3/lib/aimk helloh  # not built by "aimk all"
 ```
+
+Building the shared library is necessary if you will be using PVM with the S-Lang PVM extension or other software that needs to link against PVM.
+
 
 ### Configure your environment for running PVM
 

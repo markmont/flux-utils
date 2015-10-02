@@ -1,9 +1,13 @@
 diff -up pvm3/conf/LINUX64.def.flux pvm3/conf/LINUX64.def
 --- pvm3/conf/LINUX64.def.flux	2008-12-17 15:41:04.000000000 -0500
-+++ pvm3/conf/LINUX64.def	2015-02-18 17:14:48.406866000 -0500
-@@ -32,13 +32,14 @@
- SHAREDCFLAGS =
- SHAREDLDFLAGS = -shared
++++ pvm3/conf/LINUX64.def	2015-10-02 13:03:04.659857000 -0400
+@@ -29,16 +29,16 @@
+ #	and then do a "make clean ; make shared" in $PVM_ROOT.
+ #
+ # SHAREDCFLAGS = -fpic
+-SHAREDCFLAGS =
+-SHAREDLDFLAGS = -shared
++SHAREDLDFLAGS = -shared -Wl,-soname,libpvm3.so.3
  #
 -ARCHCFLAGS	=	-DSYSVSIGNAL -DNOWAIT3 -DRSHCOMMAND=\"/usr/bin/rsh\" \
 +CC		=	gcc
@@ -20,7 +24,7 @@ diff -up pvm3/conf/LINUX64.def.flux pvm3/conf/LINUX64.def
  PVM_ARCH	=	LINUX64
 diff -up pvm3/examples/hello.c.flux pvm3/examples/hello.c
 --- pvm3/examples/hello.c.flux	2009-01-22 20:12:48.000000000 -0500
-+++ pvm3/examples/hello.c	2015-02-18 16:50:45.394766000 -0500
++++ pvm3/examples/hello.c	2015-10-02 12:18:03.762609000 -0400
 @@ -38,21 +38,36 @@ static char rcsid[] =
  
  main()
@@ -69,7 +73,7 @@ diff -up pvm3/examples/hello.c.flux pvm3/examples/hello.c
  	exit(0);
 diff -up pvm3/examples/hello_other.c.flux pvm3/examples/hello_other.c
 --- pvm3/examples/hello_other.c.flux	2009-01-22 20:12:48.000000000 -0500
-+++ pvm3/examples/hello_other.c	2015-02-18 16:50:45.423763000 -0500
++++ pvm3/examples/hello_other.c	2015-10-02 12:18:03.793589000 -0400
 @@ -39,6 +39,7 @@ static char rcsid[] =
  #else
  #include <strings.h>
@@ -87,8 +91,8 @@ diff -up pvm3/examples/hello_other.c.flux pvm3/examples/hello_other.c
  	gethostname(buf + strlen(buf), 64);
  
 diff -up pvm3/lib/flux-pvm-run.flux pvm3/lib/flux-pvm-run
---- pvm3/lib/flux-pvm-run.flux	2015-02-18 16:50:45.442765000 -0500
-+++ pvm3/lib/flux-pvm-run	2015-02-18 16:50:45.449783000 -0500
+--- pvm3/lib/flux-pvm-run.flux	2015-10-02 12:18:03.798586000 -0400
++++ pvm3/lib/flux-pvm-run	2015-10-02 12:18:03.799609000 -0400
 @@ -0,0 +1,23 @@
 +#!/bin/sh
 +# This script is necessary because pvmd3 exec()'s things like this:
