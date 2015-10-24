@@ -34,7 +34,7 @@ def main():
     parser.add_argument("allocation_name", help="Name of the allocation")
     parser.add_argument("--jobs", help="display core and memory usage for each job", action="store_true")
     args = parser.parse_args()
-    if not re.search( r'^[a-zA-Z]\w*$', args.allocation_name ):
+    if not re.search( r'^[a-zA-Z][a-zA-Z0-9_-]+$', args.allocation_name ):
         print "ERROR: bad allocation name: allocation names must begin with a letter followed by letters, digits, and underscores."
         sys.exit( 1 );
 
