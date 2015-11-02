@@ -6,9 +6,8 @@
 #
 #  fluxlogs --days=7 job_id
 #
-#  If not specified, days defaults to 1 which will retrieve logs from
-#  today's partial log file plus yesterday's full log file.  Legal values
-#  for days ranges from 0 to 59.
+#  If not specified, days defaults to 7.  Legal values for days ranges from 0
+#  to 59.
 #
 
 use strict;
@@ -25,7 +24,7 @@ use Search::Elasticsearch;
 use Getopt::Long;
 use Data::Dumper;
 
-my $opt_days = 1;
+my $opt_days = 7;
 my $opt_help = 0;
 
 my $result = GetOptions(
@@ -37,7 +36,7 @@ if ( ! $result || $opt_help || scalar( @ARGV ) != 1 ) {
     print STDERR "  $0 [--days=N] JOB-NUMBER\n\n";
     print STDERR "  optional arguments:\n";
     print STDERR "    -h, --help   show this help message and exit\n";
-    print STDERR "    --days=N     search the most recent N days of logs (default: 1)\n";
+    print STDERR "    --days=N     search the most recent N days of logs (default: 7)\n";
     exit( $opt_help ? 0 : 1 );
 }
 

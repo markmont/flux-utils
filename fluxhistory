@@ -6,7 +6,7 @@
 #
 #  fluxhistory [--days=N] [--user=NAME] [--account=NAME]
 #
-#  If not specified, days defaults to 1.  Legal values for days ranges
+#  If not specified, days defaults to 7.  Legal values for days ranges
 #  from 0 to 59.
 #
 
@@ -25,7 +25,7 @@ use Getopt::Long;
 use Date::Format;
 use Data::Dumper;
 
-my $opt_days    = 1;
+my $opt_days    = 7;
 my $opt_help    = 0;
 my $opt_account = '';
 my $opt_user    = '';
@@ -53,7 +53,7 @@ if ( ! $result || $opt_help || scalar( @ARGV ) != 0 ) {
     print STDERR "  optional arguments:\n";
     print STDERR "    -u, --user=NAME     show jobs for user NAME\n";
     print STDERR "    -a, --account=NAME  show jobs for flux account NAME\n";
-    print STDERR "    -d, --days=N        show jobs ending in the last N days(default: 1)\n";
+    print STDERR "    -d, --days=N        show jobs ending in the last N days(default: 7)\n";
     print STDERR "    -h, --help          show this help message and exit\n";
     exit( $opt_help ? 0 : 1 );
 }
