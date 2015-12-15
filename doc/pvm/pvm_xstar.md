@@ -96,21 +96,18 @@ Below are example commands for running pvm_xstar interactively on Flux.  Change 
 qsub -I -V -A lsa_flux -q flux \
   -l procs=16,tpn=4,pmem=3800mb,walltime=24:00:00,qos=flux
 
+# Once the interactive job starts running, run the commands below
+# inside the interactive job:
+
 cd ${PBS_O_WORKDIR}
 
-#
-# Set up PVM:
-#
+# If you don't have one already, create an XSTAR joblist file:
+xstinitable
 
+# Set some environment variables PVM will need:
 export PVM_VMID=`echo ${PBS_JOBID} | cut -d. -f 1`
 export PVMD_MASTER=`hostname -s | sed 's/$/-hs/'`
-PVMHOSTFILE="${PBS_O_WORKDIR}/pvm.hosts.${PVM_VMID}"
-
-echo "* id=${PVM_VMID} wd=${PBS_O_WORKDIR}" > ${PVMHOSTFILE}
-sort ${PBS_NODEFILE} | uniq | sed 's/$/-hs/' >> ${PVMHOSTFILE}
-
-NUM_NODES=`sort ${PBS_NODEFILE} | uniq | wc -l`
-NPH=`expr ${PBS_NP} / ${NUM_NODES}`
+export PVMHOSTFILE="${PBS_O_WORKDIR}/pvm.hosts.${PVM_VMID}"
 
 PVM_EXPORT="XANBIN:LHEAPERL:PGPLOT_RGB:PGPLOT_FONT:HEADAS:FTOOLS:EXT"
 PVM_EXPORT="$PVM_EXPORT:FTOOLSINPUT:LD_LIBRARY_PATH:PFILES:LHEASOFT"
@@ -119,21 +116,31 @@ PVM_EXPORT="$PVM_EXPORT:PERLLIB:XANADU:PFCLOBBER:PGPLOT_DIR:POW_LIBRARY"
 PVM_EXPORT="$PVM_EXPORT:TCLRL_LIBDIR"
 export PVM_EXPORT
 
+NUM_NODES=`sort ${PBS_NODEFILE} | uniq | wc -l`
+NPH=`expr ${PBS_NP} / ${NUM_NODES}`
+
+# Create the PVM hostfile:
+echo "* id=${PVM_VMID} wd=${PBS_O_WORKDIR}" > ${PVMHOSTFILE}
+sort ${PBS_NODEFILE} | uniq | sed 's/$/-hs/' >> ${PVMHOSTFILE}
+
+# Remove any PVM related tempfiles that might be on our nodes from
+# previous runs of pvmd in this same interactive job:
 mpirun -pernode bash -c "rm -f /tmp/pvm*.`id -u`.${PVM_VMID}"
 
+# Start the PVM daemon:
 pvmd -n${PVMD_MASTER} ${PVMHOSTFILE} \
   < /dev/null > pvmd.out.${PVM_VMID} 2>&1 &
 
 # Rum pvm_xstar:
 mkdir WorkDir
-xstinitable   # create xstinitable.lis joblist file
 time pvm_xstar -k -h ${PVMHOSTFILE} -nph ${NPH} -v ${PVM_VMID} \
   ${PBS_O_WORKDIR}/WorkDir xstinitable.lis
 
+# Shut down the PVM daemon:
 echo halt | pvm ${PVMHOSTFILE}
-
-# Grab log files:
 sleep 10
+
+# Grab the PVM log files:
 mpirun -pernode bash -c 'cd /tmp ; for i in pvm*.`id -u`.${PVM_VMID} ; do [ -f $i ] && mv $i ${PBS_O_WORKDIR}/$i.`hostname -s` ; done'
 
 # End the interactive job and return to the Flux login node:
