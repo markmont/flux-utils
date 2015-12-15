@@ -1,5 +1,7 @@
 #!/bin/bash
-
+#
+#  PBS script for running pvm_xstar on Flux.
+#
 ## PBS preamble:
 
 #PBS -N pvm_xstar_test

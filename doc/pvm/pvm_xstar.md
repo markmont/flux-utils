@@ -13,7 +13,7 @@ XSTAR is a part of the HEASoft suite of tools.
 
   * [pvm_star web site](http://space.mit.edu/cxc/pvm_xstar/):
   * [HEASoft web site](https://heasarc.gsfc.nasa.gov/docs/software/lheasoft/).
-  * [Intermediate versions of XSTAR](ftp://legacy.gsfc.nasa.gov/software/plasma_codes/xstar/) between HEASoft releases.
+  * Intermediate versions of XSTAR between HEASoft releases: ftp://legacy.gsfc.nasa.gov/software/plasma_codes/xstar/
 
 
 ## Running pvm_xstar on Flux
