@@ -11,9 +11,10 @@ XSTAR is a part of the HEASoft suite of tools.
 
 ### pvm_xstar resources
 
-  * [pvm_star web site](http://space.mit.edu/cxc/pvm_xstar/):
+  * [pvm_star web site](http://space.mit.edu/cxc/pvm_xstar/).
   * [HEASoft web site](https://heasarc.gsfc.nasa.gov/docs/software/lheasoft/).
   * Intermediate versions of XSTAR between HEASoft releases: ftp://legacy.gsfc.nasa.gov/software/plasma_codes/xstar/
+  * [Example PBS script](https://github.com/markmont/flux-utils/blob/master/doc/pvm/pvm_xstar_test.pbs) for running pvm_xstar jobs non-interactively on Flux.
 
 
 ## Running pvm_xstar on Flux
@@ -63,7 +64,7 @@ You can now submit either a batch job to run pvm_xstar, or an interactive job.
 
 ### Batch job
 
-Download [the example PBS script for testing PVM](https://github.com/markmont/flux-utils/blob/master/doc/pvm/pvm_xstar_test.pbs):
+Download [the example PBS script for testing pvm_xstar](https://github.com/markmont/flux-utils/blob/master/doc/pvm/pvm_xstar_test.pbs):
 
 ```bash
 wget https://raw.githubusercontent.com/markmont/flux-utils/master/doc/pvm/pvm_xstar_test.pbs
