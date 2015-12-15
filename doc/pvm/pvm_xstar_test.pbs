@@ -1,0 +1,114 @@
+#!/bin/bash
+
+## PBS preamble:
+
+#PBS -N pvm_xstar_test
+#PBS -S /bin/bash
+#PBS -j oe 
+#PBS -V
+
+# Don't use "nodes=X:ppn=Y" or "procs=X:" syntax with pvm_xstar.
+# Only use "procs=X,tpn=Y" syntax and ensure that X can be evenly divided by Y.
+
+# CHANGE number of cores (procs), cores per node (tpn), memory per core (pmem)
+# and walltime.
+#PBS -l procs=32,tpn=8,pmem=3800mb,walltime=24:00:00
+
+# CHANGE "lsa_flux" to the name of your Flux allocation
+#PBS -A lsa_flux
+#PBS -q flux
+#PBS -l qos=flux
+
+# CHANGE "bjensen" to your uniqname
+#PBS -M bjensen@umich.edu
+#PBS -m abe 
+
+## End of PBS preamble
+
+
+echo "starting: pvm_xstar_test `date`"
+echo ""
+if [ -n "${PBS_JOBID}" ] ; then
+    echo "Job information:"
+    qstat -f ${PBS_JOBID}
+    echo ""
+fi
+
+#  Change to the directory you submitted from
+if [ -n "${PBS_O_WORKDIR}" ] ; then cd ${PBS_O_WORKDIR} ; fi
+
+
+# Note: module load commands do not work reliably in PBS scripts, they
+# need to be run from the Flux login nodes each time after logging in
+# but before submitting a job.  Also note that module commands will not
+# work reliably after 'heainit' has been run.
+if [ -z "${PVM_ROOT}" ] ; then
+    echo "ERROR: PVM not available"
+    echo "Be sure to run the following commands before submitting jobs:"
+    echo "    module unload intel-comp openmpi"
+    echo "    module load gcc openmpi/1.6.5/gcc/4.7.0"
+    echo "    module load lsa pvm_xstar-deps"
+    echo "    heainit"
+fi
+if [ -z "${LHEASOFT}" ] ; then
+    echo "ERROR: HEASoft not available"
+    echo "Be sure to run 'heainit' before submitting jobs"
+fi
+
+
+#
+# Set up PVM:
+#
+
+export PVM_VMID=`echo ${PBS_JOBID} | cut -d. -f 1`
+export PVMD_MASTER=`hostname -s | sed 's/$/-hs/'`
+export PVMHOSTFILE="${PBS_O_WORKDIR}/pvm.hosts.${PVM_VMID}"
+
+echo "* id=${PVM_VMID} wd=${PBS_O_WORKDIR}" > ${PVMHOSTFILE}
+sort ${PBS_NODEFILE} | uniq | sed 's/$/-hs/' >> ${PVMHOSTFILE}
+
+NUM_NODES=`sort ${PBS_NODEFILE} | uniq | wc -l`
+NPH=`expr ${PBS_NP} / ${NUM_NODES}`
+
+# to allow HEASoft to work with PVM:
+PVM_EXPORT="XANBIN:LHEAPERL:PGPLOT_RGB:PGPLOT_FONT:HEADAS:FTOOLS:EXT"
+PVM_EXPORT="$PVM_EXPORT:FTOOLSINPUT:LD_LIBRARY_PATH:PFILES:LHEASOFT"
+PVM_EXPORT="$PVM_EXPORT:LHEA_HELP:PATH:XRDEFAULTS:LHEA_DATA:FTOOLSOUTPUT"
+PVM_EXPORT="$PVM_EXPORT:PERLLIB:XANADU:PFCLOBBER:PGPLOT_DIR:POW_LIBRARY"
+PVM_EXPORT="$PVM_EXPORT:TCLRL_LIBDIR"
+export PVM_EXPORT
+
+mpirun -pernode bash -c "rm -f /tmp/pvm*.`id -u`.${PVM_VMID}"
+
+pvmd -n${PVMD_MASTER} ${PVMHOSTFILE} \
+  < /dev/null > pvmd.out.${PVM_VMID} 2>&1 &
+sleep 10  # give pvmd plenty of time to start up
+
+
+#
+# Run pvm_xstar:
+#
+
+mkdir WorkDir
+echo "Stating pvm_xstar: " `date`
+# Note: you must have already have generated a joblist file (xstinitable.lis)
+# by running the xstinitable command in the job submission directory before
+# submitting the job.  Alternately, supply xstinitable parameters on the
+# pvm_xstar command line in place of the joblist file.
+pvm_xstar -k -h ${PVMHOSTFILE} -nph ${NPH} -v ${PVM_VMID} \
+  ${PBS_O_WORKDIR}/WorkDir ${PBS_O_WORKDIR}/xstinitable.lis
+echo "pvm_xstar finished with exit code $?: " `date`
+
+
+#
+# Tear down PVM:
+#
+
+echo halt | pvm ${PVMHOSTFILE}
+sleep 10  # give pvmd a chance to shut down fully on all nodes
+
+# Grab log files:
+mpirun -pernode bash -c 'cd /tmp ; for i in pvm*.`id -u`.${PVM_VMID} ; do [ -f $i ] && mv $i ${PBS_O_WORKDIR}/$i.`hostname -s` ; done'
+
+echo "finished: pvm_xstar_test `date`"
+
