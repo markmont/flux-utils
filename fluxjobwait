@@ -1,0 +1,161 @@
+#!/usr/bin/perl -wT
+#
+#  fluxjobwait
+#
+#  Report on how long jobs wait to start.
+#
+#  fluxjobwait [--csv] [--days=N] [--user=NAME] [--account=NAME]
+#
+#  If not specified, days defaults to 7.  Legal values for days ranges
+#  from 0 to 59.
+#
+
+use strict;
+use warnings;
+
+
+BEGIN {
+    push( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/lib64/perl5' );
+    push( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/share/perl5' );
+    %ENV = (); # for security
+}
+
+use Search::Elasticsearch;
+use Getopt::Long;
+use Date::Format;
+use Data::Dumper;
+
+my $opt_csv     = 0;
+my $opt_days    = 7;
+my $opt_help    = 0;
+my $opt_account = '';
+my $opt_user    = '';
+
+my $user = getpwuid( $< ) || $ENV{'USER'} || '';
+
+
+sub getjobinfo {
+    my $entry = $_[0];
+    my $item  = $_[1];
+    return defined( $entry->{$item} ) ?  $entry->{$item} : '';
+}
+
+
+my $result = GetOptions(
+  'csv|c'       => \$opt_csv,
+  'days|d=i'    => \$opt_days,
+  'user|u=s'    => \$opt_user,
+  'account|a=s' => \$opt_account,
+  'help'        => \$opt_help,
+  );
+if ( ! $result || $opt_help || scalar( @ARGV ) != 0 ) {
+    print STDERR "Report on how long jobs wait to start.\n\n";
+    print STDERR "usage: \n";
+    print STDERR "  $0 [--csv] [--days=N] [--user=NAME] [--account=NAME]\n\n";
+    print STDERR "  optional arguments:\n";
+    print STDERR "    -u, --user=NAME     show jobs for user NAME\n";
+    print STDERR "    -a, --account=NAME  show jobs for flux account NAME\n";
+    print STDERR "    -d, --days=N        show jobs ending in the last N days (default: 7)\n";
+    print STDERR "    -c, --csv           output in CSV format\n";
+    print STDERR "    -h, --help          show this help message and exit\n";
+    exit( $opt_help ? 0 : 1 );
+}
+
+if ( $opt_days < 0 || $opt_days > 59 ) {
+    print STDERR "$0: days must be in the range 0..59\n";
+    exit( 1 );
+}
+
+if ( $opt_user ) {
+    $user = $opt_user;
+}
+if ( $user !~ /^[a-z0-9]{1,16}$/ ) {
+    print STDERR "$0: illegal username: ${user}\n";
+    exit( 1 );
+}
+
+if ( $opt_account && $opt_account !~ /^[a-z0-9_]{1,32}$/ ) {
+    print STDERR "$0: illegal account: ${opt_account}\n";
+    exit( 1 );
+}
+
+my $d = $opt_days + 1;
+my $t = time();
+my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
+my $indices = sprintf( 'logstash-joblogs-%04d.%02d.%02d', $year + 1900,
+    $mon + 1, $mday );
+$d--;
+while ( $d > 0 ) {
+    $t -= 86400;
+    ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
+    $indices = sprintf( 'logstash-joblogs-%04d.%02d.%02d,', $year + 1900,
+        $mon + 1, $mday ) . $indices;
+    $d--;
+}
+
+my $e = Search::Elasticsearch->new( nodes => 'es.arc-ts.umich.edu:9200' );
+
+my $query;
+if ( $opt_account ) {
+    $query = "type:pbsacctlog AND queue_state:E AND account:${opt_account}";
+} else {
+    $query = "type:pbsacctlog AND queue_state:E AND user:${user}";
+}
+
+my $results = $e->search(
+    index => $indices,
+    body  => {
+        'size'  => 10000,
+        'sort'  => [ { '@timestamp' => { 'order' => 'asc' } } ],
+        'query' => { 'query_string' => { 'query' => $query } },
+    }
+);
+#print Dumper($results) . "\n";
+
+# 2016-01-02 16:01:47.000 pbsacct E;17967178.nyx.arc-ts.umich.edu;user=markmont group=lsa account=support_flux jobname=lsa_flux_check queue=flux ctime=1451754053 qtime=1451754053 etime=1451768400 start=1451768488 owner=markmont@nyx5855 exec_host=nyx5607/13 Resource_List.mem=2gb Resource_List.pmem=768mb Resource_List.procs=1 Resource_List.qos=flux Resource_List.walltime=00:15:00 session=18871 total_execution_slots=1 unique_node_count=1 end=1451768507 Exit_status=0 resources_used.cput=0 resources_used.energy_used=0 resources_used.mem=58704kb resources_used.vmem=559716kb resources_used.walltime=19
+
+
+if ( $opt_csv ) {
+    print "Job ID, Job Name, User, Account, Creation Time, Start Time, Wait Time\n";
+} else {
+    print "      Job Name           User     Account         Creation time       Start time          Wait time\n";
+    print "--------- -------------- -------- --------------- ------------------- ------------------- ------------\n";
+}
+
+my $logs = $results->{'hits'}->{'hits'};
+for my $log (@$logs) {
+    if ( defined( $log->{'_source'} ) ) {
+        my $entry = $log->{'_source'};
+        my $ctime = getjobinfo( $entry, 'ctime' );
+        my $start_time = getjobinfo( $entry, 'start' );
+        next unless $start_time && $ctime;
+        my $wait_time = $start_time - $ctime;
+        my $output = '';
+        if ( $opt_csv ) {
+            $output = sprintf( "%s,\"%s\",%s,%s,%s,%s,%s\n",
+                getjobinfo( $entry, 'jobid' ),
+                getjobinfo( $entry, 'jobname' ),
+                getjobinfo( $entry, 'user' ),
+                getjobinfo( $entry, 'account' ),
+                time2str( "%Y-%m-%d %T", $ctime ),
+                time2str( "%Y-%m-%d %T", $start_time ),
+                sprintf( "%02d:%02d:%02d:%02d", (gmtime( $wait_time ))[7,2,1,0] ),
+                );
+        } else {
+            $output = sprintf( "%9s %-14s %-8s %-15s %-19s %-19s %-12s\n",
+                getjobinfo( $entry, 'jobid' ),
+                getjobinfo( $entry, 'jobname' ),
+                getjobinfo( $entry, 'user' ),
+                getjobinfo( $entry, 'account' ),
+                time2str( "%Y-%m-%d %T", $ctime ),
+                time2str( "%Y-%m-%d %T", $start_time ),
+                sprintf( "%02d:%02d:%02d:%02d", (gmtime( $wait_time ))[7,2,1,0] ),
+                );
+        }
+        print $output;
+    } else {
+            print 'NO ENTRY: ' . Dumper( $log ) . "\n";
+    }
+}
+#print Dumper($logs) . "\n";
+
