@@ -82,13 +82,13 @@ if ( $opt_account && $opt_account !~ /^[a-z0-9_]{1,32}$/ ) {
 my $d = $opt_days + 1;
 my $t = time();
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
-my $indices = sprintf( 'logstash-joblogs-%04d.%02d.%02d', $year + 1900,
+my $indices = sprintf( 'logstash-hpc-flux-joblogs-v2-%04d.%02d.%02d', $year + 1900,
     $mon + 1, $mday );
 $d--;
 while ( $d > 0 ) {
     $t -= 86400;
     ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
-    $indices = sprintf( 'logstash-joblogs-%04d.%02d.%02d,', $year + 1900,
+    $indices = sprintf( 'logstash-hpc-flux-joblogs-v2-%04d.%02d.%02d,', $year + 1900,
         $mon + 1, $mday ) . $indices;
     $d--;
 }
