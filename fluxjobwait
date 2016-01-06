@@ -106,13 +106,11 @@ my $results = $e->search(
     index => $indices,
     body  => {
         'size'  => 10000,
-        'sort'  => [ { '@timestamp' => { 'order' => 'asc' } } ],
+        'sort'  => [ { 'jobid' => { 'order' => 'asc' } } ],
         'query' => { 'query_string' => { 'query' => $query } },
     }
 );
 #print Dumper($results) . "\n";
-
-# 2016-01-02 16:01:47.000 pbsacct E;17967178.nyx.arc-ts.umich.edu;user=markmont group=lsa account=support_flux jobname=lsa_flux_check queue=flux ctime=1451754053 qtime=1451754053 etime=1451768400 start=1451768488 owner=markmont@nyx5855 exec_host=nyx5607/13 Resource_List.mem=2gb Resource_List.pmem=768mb Resource_List.procs=1 Resource_List.qos=flux Resource_List.walltime=00:15:00 session=18871 total_execution_slots=1 unique_node_count=1 end=1451768507 Exit_status=0 resources_used.cput=0 resources_used.energy_used=0 resources_used.mem=58704kb resources_used.vmem=559716kb resources_used.walltime=19
 
 
 if ( $opt_csv ) {
