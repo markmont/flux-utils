@@ -15,8 +15,8 @@ use warnings;
 
 
 BEGIN {
-    push( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/lib64/perl5' );
-    push( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/share/perl5' );
+    unshift( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/share/perl5' );
+    unshift( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/lib64/perl5' );
     %ENV = (); # for security
 }
 
