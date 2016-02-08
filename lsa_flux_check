@@ -157,6 +157,7 @@ def main( args ):
     get_account_info()
 
     warnings = defaultdict( list )
+    add_fluxm_tip = dict();
     flux_usage = defaultdict( dict )
     flux_runningjobcount_byuser = defaultdict( dict )
     flux_runningcorecount_byuser = defaultdict( dict )
@@ -267,14 +268,17 @@ def main( args ):
                 # The job can definitely fit on a single Standard Flux node:
                 msg = "%s job %s looks like it should be running under lsa_flux instead of lsa_fluxm" % ( user, id )
                 warnings[user].append(msg)
+                add_fluxm_tip[user] = True
             elif 'procs' in r:
                 # The job can fit on more than 1 Standard Flux node:
                 msg = "%s job %s looks like it should be running under lsa_flux instead of lsa_fluxm" % ( user, id )
                 warnings[user].append(msg)
+                add_fluxm_tip[user] = True
             elif maxppn > 0 and maxppn <= 20:
                 # The job can fit on more than 1 Standard Flux node:
                 msg = "%s job %s looks like it should be running under lsa_flux instead of lsa_fluxm" % ( user, id )
                 warnings[user].append(msg)
+                add_fluxm_tip[user] = True
 
         #
         # Check for inappropriate use of lsa_fluxg
@@ -357,6 +361,11 @@ def main( args ):
             for msg in user_warnings:
                 print "  " + msg
             if args.mail:
+		if user in add_fluxm_tip:
+                    user_warnings.append("""
+   TIP: Always run a job under lsa_flux if it requires:
+     - 20 or fewer cores and 80 GB or less RAM on a single node, OR
+     - 24 or fewer cores or 96 GB or less RAM across multiple nodes""")
                 message="""\
 From: %(from)s
 Reply-To: hpc-support@umich.edu
@@ -398,7 +407,7 @@ glad to assist you.
 Sincerely,
 LSA IT Advocacy and Research Support
 hpc-support@umich.edu
-""" % { 'from': current_user + "@umich.edu", 'to': user + "@umich.edu",
+""" % { 'from': current_user + "@umich.edu", 'to': current_user + "@umich.edu",
     'cc': admin_email, 'warnings': "\n".join( user_warnings ) }
                 pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE )
                 pipe.stdin.write( message )
