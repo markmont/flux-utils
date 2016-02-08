@@ -407,7 +407,7 @@ glad to assist you.
 Sincerely,
 LSA IT Advocacy and Research Support
 hpc-support@umich.edu
-""" % { 'from': current_user + "@umich.edu", 'to': current_user + "@umich.edu",
+""" % { 'from': current_user + "@umich.edu", 'to': user + "@umich.edu",
     'cc': admin_email, 'warnings': "\n".join( user_warnings ) }
                 pipe = subprocess.Popen( [ '/usr/sbin/sendmail', '-t', '-f', current_user + "@umich.edu" ], stdin=subprocess.PIPE )
                 pipe.stdin.write( message )
