@@ -395,9 +395,8 @@ to the policy will receive email warnings such as this one.  An
 excessive number of notifications may result in your being removed
 from the LSA allocations.
 
-You can check your own usage by running the commands
+You can check your own usage by running the command
 
-module load lsa flux-utils
 lsa_flux_check --details
 
 If you have any questions about the policy or how to comply with it,
