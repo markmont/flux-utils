@@ -1,10 +1,11 @@
 #!/usr/bin/perl -wT
 #
-#  fluxjobwait
+#  arcjobreport
 #
-#  Report on how long jobs wait to start.
+#  Generate a report on jobs run.
 #
-#  fluxjobwait [--csv] [--days=N] [--user=NAME] [--account=NAME]
+#  arcjobreport [--csv] [--cluster=CLUSTER] [--days=N] [--user=NAME]
+#      [--account=NAME]
 #
 #  If not specified, days defaults to 7.  Legal values for days ranges
 #  from 0 to 59.
@@ -15,8 +16,8 @@ use warnings;
 
 
 BEGIN {
-    unshift( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/share/perl5' );
-    unshift( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/lib64/perl5' );
+    unshift( @INC, '/usr/cac/rhel6/lsa/arc-admin-utils/perl5/share/perl5' );
+    unshift( @INC, '/usr/cac/rhel6/lsa/arc-admin-utils/perl5/lib64/perl5' );
     %ENV = (); # for security
 }
 
@@ -25,13 +26,24 @@ use Getopt::Long;
 use Date::Format;
 use Data::Dumper;
 
+$0 =~ m/([^\/]+)$/;
+my $program_name = $1 || 'arcjobreport';
+
 my $opt_csv     = 0;
+my $opt_cluster = 'flux';
 my $opt_days    = 7;
 my $opt_help    = 0;
 my $opt_account = '';
 my $opt_user    = '';
 
 my $user = getpwuid( $< ) || $ENV{'USER'} || '';
+
+if ( open( C, "</var/spool/torque/server_name" ) ) {
+    $opt_cluster = <C>;
+    chomp($opt_cluster);
+    $opt_cluster = 'flux' if $opt_cluster eq 'nyx';
+    close(C);
+}
 
 
 sub getjobinfo {
@@ -43,26 +55,30 @@ sub getjobinfo {
 
 my $result = GetOptions(
   'csv|c'       => \$opt_csv,
+  'cluster=s'   => \$opt_days,
   'days|d=i'    => \$opt_days,
   'user|u=s'    => \$opt_user,
   'account|a=s' => \$opt_account,
   'help'        => \$opt_help,
   );
 if ( ! $result || $opt_help || scalar( @ARGV ) != 0 ) {
-    print STDERR "Report on how long jobs wait to start.\n\n";
+    print STDERR "Generate a report on jobs run.\n\n";
     print STDERR "usage: \n";
-    print STDERR "  $0 [--csv] [--days=N] [--user=NAME] [--account=NAME]\n\n";
+    print STDERR "  ${program_name} [options]\n\n";
     print STDERR "  optional arguments:\n";
-    print STDERR "    -u, --user=NAME     show jobs for user NAME\n";
     print STDERR "    -a, --account=NAME  show jobs for flux account NAME\n";
-    print STDERR "    -d, --days=N        show jobs ending in the last N days (default: 7)\n";
+    print STDERR "    --cluster=(flux|armis)\n";
+    print STDERR "                        which cluster's logs to search (default: the cluster that\n";
+    print STDERR "                        ${program_name} is running on)\n\n";
     print STDERR "    -c, --csv           output in CSV format\n";
+    print STDERR "    -d, --days=N        show jobs ending in the last N days (default: 7)\n";
     print STDERR "    -h, --help          show this help message and exit\n";
+    print STDERR "    -u, --user=NAME     show jobs for user NAME\n";
     exit( $opt_help ? 0 : 1 );
 }
 
 if ( $opt_days < 0 || $opt_days > 59 ) {
-    print STDERR "$0: days must be in the range 0..59\n";
+    print STDERR "${program_name}: days must be in the range 0..59\n";
     exit( 1 );
 }
 
@@ -70,26 +86,34 @@ if ( $opt_user ) {
     $user = $opt_user;
 }
 if ( $user !~ /^[a-z0-9]{1,16}$/ ) {
-    print STDERR "$0: illegal username: ${user}\n";
+    print STDERR "${program_name}: illegal username: ${user}\n";
     exit( 1 );
 }
 
 if ( $opt_account && $opt_account !~ /^[a-z0-9_]{1,32}$/ ) {
-    print STDERR "$0: illegal account: ${opt_account}\n";
+    print STDERR "${program_name}: illegal account: ${opt_account}\n";
+    exit( 1 );
+}
+
+my $cluster_rm = 'nyx';
+if ( $opt_cluster eq 'armis' ) {
+  $cluster_rm = 'armis';
+} elsif ( $opt_cluster ne 'flux' ) {
+    print STDERR "${program_name}: unknown cluster name\n";
     exit( 1 );
 }
 
 my $d = $opt_days + 1;
 my $t = time();
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
-my $indices = sprintf( 'logstash-hpc-flux-joblogs-v2-%04d.%02d.%02d', $year + 1900,
-    $mon + 1, $mday );
+my $indices = sprintf( 'logstash-hpc-%s-joblogs-v2-%04d.%02d.%02d', $opt_cluster,
+    $year + 1900, $mon + 1, $mday );
 $d--;
 while ( $d > 0 ) {
     $t -= 86400;
     ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
-    $indices = sprintf( 'logstash-hpc-flux-joblogs-v2-%04d.%02d.%02d,', $year + 1900,
-        $mon + 1, $mday ) . $indices;
+    $indices = sprintf( 'logstash-hpc-%s-joblogs-v2-%04d.%02d.%02d,',
+        $opt_cluster, $year + 1900, $mon + 1, $mday ) . $indices;
     $d--;
 }
 
@@ -114,10 +138,10 @@ my $results = $e->search(
 
 
 if ( $opt_csv ) {
-    print "Job ID, Job Name, User, Account, Creation Time, Start Time, Wait Time\n";
+    print "Job ID, Job Name, User, Account, Creation Time, Start Time, Time in Queue, Walltime Used, Exit Status, Memory Used\n";
 } else {
-    print "      Job Name           User     Account         Creation time       Start time          Wait time\n";
-    print "--------- -------------- -------- --------------- ------------------- ------------------- ------------\n";
+    print "      Job Name           User     Account         Creation time       Start time          Waited for   Ran for      Exit   Memory used\n";
+    print "--------- -------------- -------- --------------- ------------------- ------------------- ------------ ------------ ---- -------------\n";
 }
 
 my $logs = $results->{'hits'}->{'hits'};
@@ -128,19 +152,14 @@ for my $log (@$logs) {
         my $start_time = getjobinfo( $entry, 'start' );
         next unless $start_time && $ctime;
         my $wait_time = $start_time - $ctime;
-        my $output = '';
+        my $walltime_used = getjobinfo( $entry, 'resources_used.walltime' );
+        my $format = '';
         if ( $opt_csv ) {
-            $output = sprintf( "%s,\"%s\",%s,%s,%s,%s,%s\n",
-                getjobinfo( $entry, 'jobid' ),
-                getjobinfo( $entry, 'jobname' ),
-                getjobinfo( $entry, 'user' ),
-                getjobinfo( $entry, 'account' ),
-                time2str( "%Y-%m-%d %T", $ctime ),
-                time2str( "%Y-%m-%d %T", $start_time ),
-                sprintf( "%02d:%02d:%02d:%02d", (gmtime( $wait_time ))[7,2,1,0] ),
-                );
+            $format = "%s,\"%s\",%s,%s,%s,%s,%s,%s,%s,%s\n";
         } else {
-            $output = sprintf( "%9s %-14s %-8s %-15s %-19s %-19s %-12s\n",
+            $format = "%9s %-14s %-8s %-15s %-19s %-19s %-12s %-12s %4d %12s\n";
+        }
+        my $output = sprintf( $format,
                 getjobinfo( $entry, 'jobid' ),
                 getjobinfo( $entry, 'jobname' ),
                 getjobinfo( $entry, 'user' ),
@@ -148,8 +167,10 @@ for my $log (@$logs) {
                 time2str( "%Y-%m-%d %T", $ctime ),
                 time2str( "%Y-%m-%d %T", $start_time ),
                 sprintf( "%02d:%02d:%02d:%02d", (gmtime( $wait_time ))[7,2,1,0] ),
+                sprintf( "%02d:%02d:%02d:%02d", (gmtime( $walltime_used ))[7,2,1,0] ),
+                getjobinfo( $entry, 'Exit_status' ),
+                getjobinfo( $entry, 'resources_used.mem' ),
                 );
-        }
         print $output;
     } else {
             print 'NO ENTRY: ' . Dumper( $log ) . "\n";
