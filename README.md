@@ -30,9 +30,9 @@ SYNOPSIS
     gpujobinfo
 
 
-`fluxlogs` - retrieves log entries for a job
+`arclogs` - retrieves log entries for a job
 
-    fluxlogs [--days N] job_id
+    arclogs [--days N] job_id
 
     optional arguments:
       -h, --help   show this help message and exit
@@ -47,7 +47,7 @@ INSTALLATION
 * [TORQUE](http://www.adaptivecomputing.com/products/open-source/torque/)
 * [python-daemon](https://pypi.python.org/pypi/python-daemon)
 * argparse (included with Python 2.7 and later, and with Python 3.2 and later)
-* `fluxlogs` requires Perl 5 and `cpan`
+* `arclogs` requires Perl 5 and `cpan`
 
 The following commands are very rough and are specific to Flux:
 
@@ -99,18 +99,18 @@ done
 
 ```
 
-To set up `fluxlogs`:
+To set up `arclogs`:
 
 ```bash
 
-export INSTALL_DIR=/usr/cac/rhel6/lsa/flux-utils
+export INSTALL_DIR=/usr/cac/rhel6/lsa/arc-admin-utils
 
 rm -rf ~/.cpan
 script cpan-setup.log
   perl -MCPAN -e shell
     # if it asks you if you want it to configure as much as possible, say "yes"
-    o conf makepl_arg PREFIX=/usr/cac/rhel6/lsa/flux-utils/perl5
-    o conf mbuildpl_arg "--prefix /usr/cac/rhel6/lsa/flux-utils/perl5"
+    o conf makepl_arg PREFIX=/usr/cac/rhel6/lsa/arc-admin-utils/perl5
+    o conf mbuildpl_arg "--prefix /usr/cac/rhel6/lsa/arc-admin-utils/perl5"
     o conf prerequisites_policy follow
     o conf build_requires_install_policy yes
     o conf commit
@@ -138,7 +138,7 @@ Additional resources may be available at [http://github.com/markmont/flux-utils]
 LICENSE
 =======
 
-`flux-utils` is Copyright (C) 2013 - 2014 Regents of The University of Michigan.
+`flux-utils` is Copyright (C) 2013 - 2016 Regents of The University of Michigan.
 
 `flux-utils` is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 

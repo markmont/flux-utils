@@ -1,10 +1,10 @@
 #!/usr/bin/perl -wT
 #
-#  fluxlogs
+#  arclogs
 #
 #  Retrieves log file entries for a job from Elasticsearch.  Usage:
 #
-#  fluxlogs --days=7 job_id
+#  arclogs --cluster=flux --days=7 job_id
 #
 #  If not specified, days defaults to 7.  Legal values for days ranges from 0
 #  to 59.
@@ -15,8 +15,8 @@ use warnings;
 
 
 BEGIN {
-    unshift( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/share/perl5' );
-    unshift( @INC, '/usr/cac/rhel6/lsa/flux-utils/perl5/lib64/perl5' );
+    unshift( @INC, '/usr/cac/rhel6/lsa/arc-admin-utils/perl5/share/perl5' );
+    unshift( @INC, '/usr/cac/rhel6/lsa/arc-admin-utils/perl5/lib64/perl5' );
     %ENV = (); # for security
 }
 
@@ -24,29 +24,53 @@ use Search::Elasticsearch;
 use Getopt::Long;
 use Data::Dumper;
 
-my $opt_days = 7;
-my $opt_help = 0;
+$0 =~ m/([^\/]+)$/;
+my $program_name = $1 || 'arclogs';
+
+my $opt_cluster = 'flux';
+my $opt_days    = 7;
+my $opt_help    = 0;
+
+if ( open( C, "</var/spool/torque/server_name" ) ) {
+    $opt_cluster = <C>;
+    chomp($opt_cluster);
+    $opt_cluster = 'flux' if $opt_cluster eq 'nyx';
+    close(C);
+}
+$opt_days = 3 if $opt_cluster eq 'armis';
 
 my $result = GetOptions(
-  'days=i' => \$opt_days,
-  'help'   => \$opt_help,
+  'cluster=s' => \$opt_days,
+  'days=i'    => \$opt_days,
+  'help'      => \$opt_help,
   );
 if ( ! $result || $opt_help || scalar( @ARGV ) != 1 ) {
-    print STDERR "usage: \n";
-    print STDERR "  $0 [--days=N] JOB-NUMBER\n\n";
-    print STDERR "  optional arguments:\n";
+    print STDERR "\nusage: \n";
+    print STDERR "  ${program_name} [options] JOB-NUMBER\n\n";
+    print STDERR "  options:\n";
     print STDERR "    -h, --help   show this help message and exit\n";
-    print STDERR "    --days=N     search the most recent N days of logs (default: 7)\n";
+    print STDERR "    --days=N     search the most recent N days of logs (default: 7, 3 for armis)\n";
+    print STDERR "    --cluster=(flux|armis)\n";
+    print STDERR "                 which cluster's logs to search (default: the cluster that\n";
+    print STDERR "                 ${program_name} is running on)\n\n";
     exit( $opt_help ? 0 : 1 );
 }
 
 if ( $opt_days < 0 || $opt_days > 59 ) {
-    print STDERR "$0: days must be in the range 0..59\n";
+    print STDERR "${program_name}: days must be in the range 0..59\n";
+    exit( 1 );
+}
+
+my $cluster_rm = 'nyx';
+if ( $opt_cluster eq 'armis' ) {
+  $cluster_rm = 'armis';
+} elsif ( $opt_cluster ne 'flux' ) {
+    print STDERR "${program_name}: unknown cluster name\n";
     exit( 1 );
 }
 
 my $job_id = $ARGV[0];
-$job_id =~ s/\.nyx\.arc-ts.umich\.edu\s*$//;
+$job_id =~ s/\.${cluster_rm}\.arc-ts.umich\.edu\s*$//;
 if ( $job_id !~ /^\d+(\[\d*\])?$/ ) {
     print STDERR "$0: bad job id\n";
     exit( 1 );
@@ -56,13 +80,13 @@ $job_id = quotemeta( $job_id );
 my $d = $opt_days + 1;
 my $t = time();
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
-my $indices = sprintf( 'logstash-hpc-flux-joblogs-v2-%04d.%02d.%02d', $year + 1900,
+my $indices = sprintf( 'logstash-hpc-%s-joblogs-v2-%04d.%02d.%02d', $opt_cluster, $year + 1900,
     $mon + 1, $mday );
 $d--;
 while ( $d > 0 ) {
     $t -= 86400;
     ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
-    $indices = sprintf( 'logstash-hpc-flux-joblogs-v2-%04d.%02d.%02d,', $year + 1900,
+    $indices = sprintf( 'logstash-hpc-%s-joblogs-v2-%04d.%02d.%02d,', $opt_cluster, $year + 1900,
         $mon + 1, $mday ) . $indices;
     $d--;
 }
@@ -83,7 +107,7 @@ my $results = $e->search(
                 #   job:14467816
                 # Note that the specific results we are relying on depend on
                 # the elasticsearch analyser chosen for the index.
-                'query' => "\"${job_id}.nyx.arc-ts.umich.edu\" OR \"job ${job_id}\""
+                'query' => "\"${job_id}.${cluster_rm}.arc-ts.umich.edu\" OR \"job ${job_id}\""
             }
         }
     }
