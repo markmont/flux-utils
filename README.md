@@ -42,7 +42,7 @@ SYNOPSIS
 INSTALLATION
 ============
 
-`flux-utils` requires:
+`arc-utils` requires:
 
 * [TORQUE](http://www.adaptivecomputing.com/products/open-source/torque/)
 * [python-daemon](https://pypi.python.org/pypi/python-daemon)
@@ -52,46 +52,79 @@ INSTALLATION
 The following commands are very rough and are specific to Flux:
 
 ```bash
-mkdir /usr/flux/software/src/lsa/flux-utils
-cd /usr/flux/software/src/lsa/flux-utils
+mkdir /usr/flux/software/src/lsa/arc-utils
+cd /usr/flux/software/src/lsa/arc-utils
+
+exec newgrp lsaswadm
+umask 0002
 
 git clone https://github.com/markmont/flux-utils.git
 cd flux-utils
 
-export INSTALL_DIR=/usr/cac/rhel6/lsa/flux-utils
+export INSTALL_DIR=/usr/cac/rhel6/lsa/arc-utils
 mkdir -p ${INSTALL_DIR}/lib/python2.6/site-packages/
 
 PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
-  easy_install --prefix ${INSTALL_DIR} argparse python-daemon \
+  easy_install --prefix ${INSTALL_DIR} argparse \
   2>&1 | tee log.install
+
+# 1.6 is the latest version that will work with Python 2.6 under RHEL6
+PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
+  easy_install --prefix ${INSTALL_DIR} \
+  https://pypi.python.org/packages/source/p/python-daemon/python-daemon-1.6.tar.gz#md5=c774eda27d6c5d80b42037826d29e523 \
+  2>&1 | tee -a log.install
 
 python ./setup.py build 2>&1 | tee log.build
 PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
   python ./setup.py install --prefix ${INSTALL_DIR} \
   2>&1 | tee -a log.install
 
+( cd ${INSTALL_DIR}/bin ;
+  ln -s /home/software/rhel6/med/tto ;
+  ln -s /home/software/rhel6/med/tto maxwalltime )
 
-mkdir /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/
+mkdir socks
+cd socks
+# Download the Dante source code from http://www.inet.no/dante/download.html
+wget http://www.inet.no/dante/files/dante-1.4.1.tar.gz
+tar zxf dante-1.4.1.tar.gz
+cd dante-1.4.1
+./configure --prefix=${INSTALL_DIR} \
+  --with-socks-conf=${INSTALL_DIR}/etc/socks.conf \
+  2>&1 | tee log.socks.configure
+make 2>&1 | tee log.socks.make
+make install 2>&1 | tee log.socks.install
+cp log.* ${INSTALL_DIR}
+mkdir -p ${INSTALL_DIR}/etc
+cat > ${INSTALL_DIR}/etc/socks.conf <<__EOF__
+resolveprotocol: tcp  # work around ssh proxying only TCP, not needed if using a real SOCKS server
+route {
+        from: 0.0.0.0/0 to: 0.0.0.0/0 via: 127.0.0.1 port = 1080
+        proxyprotocol: socks_v4 socks_v5
+        method: none
+}
+__EOF__
+
+
+mkdir /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils/
 cp -r /usr/cac/rhel6/lsa/Modules/modulefiles/pgplot/* \
-  /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/
-cd /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils
-mv pgplot.inc.tcl flux-utils.inc.tcl
+  /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils/
+cd /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils
+mv pgplot.inc.tcl arc-utils.inc.tcl
 mv 5.2.2/g77 1
 rmdir 5.2.2
 
-vi /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/flux-utils.inc.tcl
+vi /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils/arc-utils.inc.tcl
    # Make any changes needed
 
-vi /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/1
+vi /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils/1
    # Make any changes needed
 
-
-cp BUILD_NOTES-flux-utils ${INSTALL_DIR}
 
 # Set permissions so that lsaswadm can administer:
 for d in ${INSTALL_DIR} \
-  /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils \
-  /usr/flux/software/src/lsa/flux-utils ; do
+  /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils \
+  /usr/flux/software/src/lsa/arc-utils ; do
   chgrp -R lsaswadm $d
   chmod -R g+rwX,o+rX $d
   find $d -type d | xargs chmod g+s
