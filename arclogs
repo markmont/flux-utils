@@ -37,7 +37,6 @@ if ( open( C, "</var/spool/torque/server_name" ) ) {
     $opt_cluster = 'flux' if $opt_cluster eq 'nyx';
     close(C);
 }
-$opt_days = 3 if $opt_cluster eq 'armis';
 
 my $result = GetOptions(
   'cluster=s' => \$opt_days,
@@ -49,7 +48,7 @@ if ( ! $result || $opt_help || scalar( @ARGV ) != 1 ) {
     print STDERR "  ${program_name} [options] JOB-NUMBER\n\n";
     print STDERR "  options:\n";
     print STDERR "    -h, --help   show this help message and exit\n";
-    print STDERR "    --days=N     search the most recent N days of logs (default: 7, 3 for armis)\n";
+    print STDERR "    --days=N     search the most recent N days of logs (default: 7)\n";
     print STDERR "    --cluster=(flux|armis)\n";
     print STDERR "                 which cluster's logs to search (default: the cluster that\n";
     print STDERR "                 ${program_name} is running on)\n\n";
