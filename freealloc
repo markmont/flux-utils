@@ -3,7 +3,7 @@
 # freealloc - display resources requested by jobs in an allocation
 #
 
-INSTALL_ROOT = '/home/software/rhel6/lsa/flux-utils';
+INSTALL_ROOT = '/home/software/rhel6/lsa/arc-utils';
 
 import site
 site.addsitedir( "%s/lib/python2.6/site-packages/" % INSTALL_ROOT )
