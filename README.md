@@ -42,7 +42,7 @@ SYNOPSIS
 INSTALLATION
 ============
 
-`arc-utils` requires:
+`flux-utils` requires:
 
 * [TORQUE](http://www.adaptivecomputing.com/products/open-source/torque/)
 * [python-daemon](https://pypi.python.org/pypi/python-daemon)
@@ -52,8 +52,8 @@ INSTALLATION
 The following commands are very rough and are specific to Flux:
 
 ```bash
-mkdir /usr/flux/software/src/lsa/arc-utils
-cd /usr/flux/software/src/lsa/arc-utils
+mkdir /usr/flux/software/src/lsa/flux-utils
+cd /usr/flux/software/src/lsa/flux-utils
 
 exec newgrp lsaswadm
 umask 0002
@@ -61,7 +61,7 @@ umask 0002
 git clone https://github.com/markmont/flux-utils.git
 cd flux-utils
 
-export INSTALL_DIR=/usr/cac/rhel6/lsa/arc-utils
+export INSTALL_DIR=/usr/cac/rhel6/lsa/flux-utils
 mkdir -p ${INSTALL_DIR}/lib/python2.6/site-packages/
 
 PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
@@ -106,25 +106,25 @@ route {
 __EOF__
 
 
-mkdir /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils/
+mkdir /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/
 cp -r /usr/cac/rhel6/lsa/Modules/modulefiles/pgplot/* \
-  /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils/
-cd /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils
-mv pgplot.inc.tcl arc-utils.inc.tcl
+  /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/
+cd /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils
+mv pgplot.inc.tcl flux-utils.inc.tcl
 mv 5.2.2/g77 1
 rmdir 5.2.2
 
-vi /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils/arc-utils.inc.tcl
+vi /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/flux-utils.inc.tcl
    # Make any changes needed
 
-vi /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils/1
+vi /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/1
    # Make any changes needed
 
 
 # Set permissions so that lsaswadm can administer:
 for d in ${INSTALL_DIR} \
-  /usr/cac/rhel6/lsa/Modules/modulefiles/arc-utils \
-  /usr/flux/software/src/lsa/arc-utils ; do
+  /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils \
+  /usr/flux/software/src/lsa/flux-utils ; do
   chgrp -R lsaswadm $d
   chmod -R g+rwX,o+rX $d
   find $d -type d | xargs chmod g+s
