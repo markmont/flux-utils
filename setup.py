@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(
-    name = 'arc-utils',
+    name = 'flux-utils',
     version = '1.0',
     description = 'ARC Cluster Utilities',
     author = 'Mark Montague',

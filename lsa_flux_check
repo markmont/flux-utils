@@ -26,7 +26,7 @@
 #       access to that the job could be running under.
 #
 
-INSTALL_ROOT = '/home/software/rhel6/lsa/arc-utils';
+INSTALL_ROOT = '/home/software/rhel6/lsa/flux-utils';
 
 import site
 site.addsitedir( "%s/lib/python2.6/site-packages/" % INSTALL_ROOT )
