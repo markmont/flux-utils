@@ -75,15 +75,14 @@ def main():
 
     pbs = PBS()
     pbs.connect( pbs.default() )
-    jobs = pbs.statjob( '', None, None )
+    sel_list = ATTROPL( None, "job_state", None, "R", BATCH_OP.EQ )
+    jobs = pbs.selstat( sel_list, None )
 
     for job in jobs:
 
         attrib = job['attrib']
 
         if not 'Account_Name' in attrib or attrib['Account_Name'] != args.allocation_name:
-            continue
-        if attrib['job_state'] != 'R':
             continue
 
         cores = -1

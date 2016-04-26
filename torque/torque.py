@@ -67,11 +67,39 @@ BATCH_STATUS._fields_ = [
     ( "text", c_char_p )
     ]
 
+class ATTROPL(Structure):
+    pass
+
+ATTROPL._fields_ = [
+    ( "next", POINTER(ATTROPL) ),
+    ( "name", c_char_p ),
+    ( "resource", c_char_p ),
+    ( "value", c_char_p ),
+    ( "op", c_int )
+    ]
+
+class BATCH_OP():
+    SET = 0
+    UNSET = 1
+    INCR = 2
+    DECR = 3
+    EQ = 4
+    NE = 5
+    GE = 6
+    GT = 7
+    LE = 8
+    LT = 9
+    DFLT = 10
+    MERGE = 11
+    INCR_OLD = 12
+ 
 
 _libtorque.pbs_errno = c_int
 _libtorque.pbs_default.restype = c_char_p
 _libtorque.pbs_statjob.argtypes = [ c_int, c_char_p, c_void_p, c_char_p ]
 _libtorque.pbs_statjob.restype = POINTER(BATCH_STATUS)
+_libtorque.pbs_selstat.argtypes = [ c_int, POINTER(ATTROPL), c_char_p ]
+_libtorque.pbs_selstat.restype = POINTER(BATCH_STATUS)
 _libtorque.pbs_statfree.argtypes = [ POINTER(BATCH_STATUS) ]  # return type is void
 
 
@@ -121,4 +149,11 @@ class PBS:
             raise RuntimeError( "not connected to pbs server" )
         job_info = _libtorque.pbs_statjob( self.con, id, attrib, extend )
         return PBS.JobList( job_info )
+
+    def selstat( self, sel_list, extend ):
+        if not self.con:
+            raise RuntimeError( "not connected to pbs server" )
+        job_info = _libtorque.pbs_selstat( self.con, sel_list, extend )
+        return PBS.JobList( job_info )
+
 
