@@ -157,7 +157,7 @@ for my $log (@$logs) {
         if ( $opt_csv ) {
             $format = "%s,\"%s\",%s,%s,%s,%s,%s,%s,%s,%s\n";
         } else {
-            $format = "%9s %-14s %-8s %-15s %-19s %-19s %-12s %-12s %4d %12s\n";
+            $format = "%9s %-14.14s %-8s %-15s %-19s %-19s %-12s %-12s %4d %12s\n";
         }
         my $output = sprintf( $format,
                 getjobinfo( $entry, 'jobid' ),
