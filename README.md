@@ -52,36 +52,44 @@ INSTALLATION
 The following commands are very rough and are specific to Flux:
 
 ```bash
-mkdir /usr/flux/software/src/lsa/flux-utils
-cd /usr/flux/software/src/lsa/flux-utils
-
 exec newgrp lsaswadm
 umask 0002
+
+sudo mkdir /usr/local/flux-utils
+sudo chown ${USER}:lsaswadm /usr/local/flux-utils
+sudo chmod 2775 /usr/local/flux-utils
 
 git clone https://github.com/markmont/flux-utils.git
 cd flux-utils
 
-export INSTALL_DIR=/usr/cac/rhel6/lsa/flux-utils
-mkdir -p ${INSTALL_DIR}/lib/python2.6/site-packages/
-
-PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
-  easy_install --prefix ${INSTALL_DIR} argparse \
-  2>&1 | tee log.install
-
-# 1.6 is the latest version that will work with Python 2.6 under RHEL6
-PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
-  easy_install --prefix ${INSTALL_DIR} \
-  https://pypi.python.org/packages/source/p/python-daemon/python-daemon-1.6.tar.gz#md5=c774eda27d6c5d80b42037826d29e523 \
-  2>&1 | tee -a log.install
+export INSTALL_DIR=/usr/local/flux-utils
+mkdir -p ${INSTALL_DIR}/lib/python2.7/site-packages/
 
 python ./setup.py build 2>&1 | tee log.build
-PYTHONPATH=${INSTALL_DIR}/lib/python2.6/site-packages/ \
-  python ./setup.py install --prefix ${INSTALL_DIR} \
-  2>&1 | tee -a log.install
 
+# Use "--single-version-externally-managed --record /dev/null" to force
+# setuptools to not wrap the Python scripts.  Wrapping the scripts fails
+# since the flux-utils modifies its own PYTHONPATH (the wrappers don't know
+# where to look to find the actual scripts).
+
+PYTHONPATH=${INSTALL_DIR}/lib/python2.7/site-packages/ \
+  python ./setup.py install --single-version-externally-managed \
+  --record /dev/null --prefix ${INSTALL_DIR} \
+  2>&1 | tee log.install
+
+# .../flux-utils/bin is in users' default PATH, but /sw/med/centos7 is not
+# so create a symlink to make tto and maxwalltime available:
 ( cd ${INSTALL_DIR}/bin ;
-  ln -s /home/software/rhel6/med/tto ;
-  ln -s /home/software/rhel6/med/tto maxwalltime )
+  ln -s /sw/med/centos7/tto ;
+  ln -s /sw/med/centos7/tto maxwalltime )
+
+# .../flux-utils/bin is in users' default PATH, but /usr/arc-connect is not
+# so create a symlink to make the VNC scripts available:
+( cd ${INSTALL_DIR}/bin ;
+  for v in /usr/arc-connect/flux/centos7/bin/vnc-* ; do
+    ln -s $v
+  done )
+
 
 mkdir socks
 cd socks
@@ -94,7 +102,6 @@ cd dante-1.4.1
   2>&1 | tee log.socks.configure
 make 2>&1 | tee log.socks.make
 make install 2>&1 | tee log.socks.install
-cp log.* ${INSTALL_DIR}
 mkdir -p ${INSTALL_DIR}/etc
 cat > ${INSTALL_DIR}/etc/socks.conf <<__EOF__
 resolveprotocol: tcp  # work around ssh proxying only TCP, not needed if using a real SOCKS server
@@ -106,29 +113,10 @@ route {
 __EOF__
 
 
-mkdir /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/
-cp -r /usr/cac/rhel6/lsa/Modules/modulefiles/pgplot/* \
-  /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/
-cd /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils
-mv pgplot.inc.tcl flux-utils.inc.tcl
-mv 5.2.2/g77 1
-rmdir 5.2.2
-
-vi /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/flux-utils.inc.tcl
-   # Make any changes needed
-
-vi /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils/1
-   # Make any changes needed
-
-
 # Set permissions so that lsaswadm can administer:
-for d in ${INSTALL_DIR} \
-  /usr/cac/rhel6/lsa/Modules/modulefiles/flux-utils \
-  /usr/flux/software/src/lsa/flux-utils ; do
-  chgrp -R lsaswadm $d
-  chmod -R g+rwX,o+rX $d
-  find $d -type d | xargs chmod g+s
-done
+chmod -R g+rwX,o+rX ${INSTALL_DIR}
+find ${INSTALL_DIR} -type d | xargs chmod g+s
+sudo chown -R root:lsaswadm ${INSTALL_DIR}
 
 ```
 

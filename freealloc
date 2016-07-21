@@ -3,10 +3,10 @@
 # freealloc - display resources requested by jobs in an allocation
 #
 
-INSTALL_ROOT = '/home/software/rhel6/lsa/flux-utils';
+INSTALL_ROOT = '/usr/local/flux-utils';
 
 import site
-site.addsitedir( "%s/lib/python2.6/site-packages/" % INSTALL_ROOT )
+site.addsitedir( "%s/lib/python2.7/site-packages/" % INSTALL_ROOT )
 
 
 import sys

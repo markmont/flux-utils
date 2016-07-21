@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 # lsa_flux_check - determine if a user of lsa_flux, lsa_fluxm, or lsa_fluxg
 # is complying with the usage limits as documented at
@@ -26,10 +26,10 @@
 #       access to that the job could be running under.
 #
 
-INSTALL_ROOT = '/home/software/rhel6/lsa/flux-utils';
+INSTALL_ROOT = '/usr/local/flux-utils';
 
 import site
-site.addsitedir( "%s/lib/python2.6/site-packages/" % INSTALL_ROOT )
+site.addsitedir( "%s/lib/python2.7/site-packages/" % INSTALL_ROOT )
 
 
 import sys
@@ -490,7 +490,7 @@ if __name__ == "__main__":
             if h > hour:
                 next_hour = h
                 break
-        pipe = subprocess.Popen( [ '/usr/local/torque/bin/qsub', '-N', 'lsa_flux_check', '-V', '-A', 'support_flux', '-q', 'flux', '-M', admin_email, '-m', 'a', '-l', 'procs=1,mem=2gb,walltime=15:00,qos=flux', '-S', '/bin/bash', '-j', 'oe', '-a', '%02d00' % next_hour  ], stdin=subprocess.PIPE )
+        pipe = subprocess.Popen( [ '/usr/local/bin/qsub', '-N', 'lsa_flux_check', '-V', '-A', 'support_flux', '-q', 'flux', '-M', admin_email, '-m', 'a', '-l', 'procs=1,mem=2gb,walltime=15:00,qos=flux', '-S', '/bin/bash', '-j', 'oe', '-a', '%02d00' % next_hour  ], stdin=subprocess.PIPE )
         pipe.stdin.write( os.path.abspath(inspect.getsourcefile(main) + " --submit" ) )
         pipe.stdin.close()
         pipe.wait()

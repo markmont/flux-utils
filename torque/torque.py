@@ -4,7 +4,7 @@ from collections import defaultdict
 
 # Load the standard system-wide version of the torque library:
 from ctypes import *
-_libtorque = cdll.LoadLibrary( "/usr/local/torque/lib/libtorque.so.2.0.0" )
+_libtorque = cdll.LoadLibrary( "/usr/local/lib/libtorque.so.2.0.0" )
 
 
 # Given a string of the form nnnn[ kmgt][ bw]

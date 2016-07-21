@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# a better freenodes
+#   sums numeric columns of interest
+#   outputs in 79, not 81, columns
+#   implemented as a script, not a shell function
+# cja, 2014
+
+mdiag -t | awk /Dedicated/,/^Memory/ | grep -v ^Memory | grep -v ^$ | grep -v ^ALL | grep -v ^SHARED | sed -e 's/   //' -e 's/--/-/' | awk '{if ($1 != "Nodes" && $1 != "Processors") {print; c += $2; u += $3; d += $5; a += $7} else if ($1 == "Processors") {printf("total %16d%11d%19d%19d\n",c,u,d,a); c = u = d = a = 0; print} else print} END {if (c+u+d+a>0) printf("total %16d%11d%19d%19d\n",c,u,d,a)}'
