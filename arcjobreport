@@ -16,8 +16,8 @@ use warnings;
 
 
 BEGIN {
-    unshift( @INC, '/usr/cac/rhel6/lsa/arc-admin-utils/perl5/share/perl5' );
-    unshift( @INC, '/usr/cac/rhel6/lsa/arc-admin-utils/perl5/lib64/perl5' );
+    unshift( @INC, '/sw/lsa/centos7/arc-admin-utils/1.0/perl5/share/perl5' );
+    unshift( @INC, '/sw/lsa/centos7/arc-admin-utils/1.0/perl5/lib64/perl5' );
     %ENV = (); # for security
 }
 
@@ -41,7 +41,7 @@ my $user = getpwuid( $< ) || $ENV{'USER'} || '';
 if ( open( C, "</var/spool/torque/server_name" ) ) {
     $opt_cluster = <C>;
     chomp($opt_cluster);
-    $opt_cluster = 'flux' if $opt_cluster eq 'nyx';
+    $opt_cluster = 'flux' if $opt_cluster eq 'nyx.arc-ts.umich.edu';
     close(C);
 }
 
@@ -106,13 +106,13 @@ if ( $opt_cluster eq 'armis' ) {
 my $d = $opt_days + 1;
 my $t = time();
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
-my $indices = sprintf( 'logstash-hpc-%s-joblogs-v2-%04d.%02d.%02d', $opt_cluster,
+my $indices = sprintf( 'logstash-hpc-%s-joblogs-v3-%04d.%02d.%02d', $opt_cluster,
     $year + 1900, $mon + 1, $mday );
 $d--;
 while ( $d > 0 ) {
     $t -= 86400;
     ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime( $t );
-    $indices = sprintf( 'logstash-hpc-%s-joblogs-v2-%04d.%02d.%02d,',
+    $indices = sprintf( 'logstash-hpc-%s-joblogs-v3-%04d.%02d.%02d,',
         $opt_cluster, $year + 1900, $mon + 1, $mday ) . $indices;
     $d--;
 }
@@ -152,7 +152,7 @@ for my $log (@$logs) {
         my $start_time = getjobinfo( $entry, 'start' );
         next unless $start_time && $ctime;
         my $wait_time = $start_time - $ctime;
-        my $walltime_used = getjobinfo( $entry, 'resources_used.walltime' );
+        my $walltime_used = getjobinfo( $entry, 'resources_used_walltime' );
         my $format = '';
         if ( $opt_csv ) {
             $format = "%s,\"%s\",%s,%s,%s,%s,%s,%s,%s,%s\n";
@@ -167,9 +167,9 @@ for my $log (@$logs) {
                 time2str( "%Y-%m-%d %T", $ctime ),
                 time2str( "%Y-%m-%d %T", $start_time ),
                 sprintf( "%02d:%02d:%02d:%02d", (gmtime( $wait_time ))[7,2,1,0] ),
-                sprintf( "%02d:%02d:%02d:%02d", (gmtime( $walltime_used ))[7,2,1,0] ),
+                $walltime_used,
                 getjobinfo( $entry, 'Exit_status' ),
-                getjobinfo( $entry, 'resources_used.mem' ),
+                getjobinfo( $entry, 'resources_used_mem' ),
                 );
         print $output;
     } else {
