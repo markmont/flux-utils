@@ -481,7 +481,7 @@ if __name__ == "__main__":
         os.chdir( dir )
         hour = time.localtime().tm_hour
         if sys.stdout.isatty():
-            print "Becoming self-submitting job.  Will check twice daily (morning and afternoon)."
+            print "Becoming self-submitting job.  Will check four times daily."
             if hour in scheduled_hours: do_scheduled_report( args )
         else:
             do_scheduled_report( args )
@@ -490,7 +490,7 @@ if __name__ == "__main__":
             if h > hour:
                 next_hour = h
                 break
-        pipe = subprocess.Popen( [ '/usr/local/bin/qsub', '-N', 'lsa_flux_check', '-V', '-A', 'support_flux', '-q', 'flux', '-M', admin_email, '-m', 'a', '-l', 'procs=1,mem=2gb,walltime=15:00,qos=flux', '-S', '/bin/bash', '-j', 'oe', '-a', '%02d00' % next_hour  ], stdin=subprocess.PIPE )
+        pipe = subprocess.Popen( [ '/usr/local/bin/qsub', '-N', 'lsa_flux_check', '-A', 'support_flux', '-q', 'flux', '-M', admin_email, '-m', 'a', '-l', 'procs=1,mem=2gb,walltime=15:00,qos=flux', '-S', '/bin/bash', '-j', 'oe', '-a', '%02d00' % next_hour  ], stdin=subprocess.PIPE )
         pipe.stdin.write( os.path.abspath(inspect.getsourcefile(main) + " --submit" ) )
         pipe.stdin.close()
         pipe.wait()
