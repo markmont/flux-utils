@@ -12,6 +12,6 @@ setup(
     url = 'http://github.com/markmont/flux-utils',
     install_requires = [ 'python-daemon' ],
     packages = [ 'torque' ],
-    scripts = [ 'freenodes', 'freealloc', 'lsa_flux_check', 'cancel-my-jobs' ],
+    scripts = [ 'freenodes', 'freealloc', 'lsa_flux_check', 'cancel-my-jobs', 'idlenodes' ],
     )
 

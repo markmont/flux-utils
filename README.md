@@ -39,6 +39,23 @@ SYNOPSIS
       --days N     search the most recent N days of logs (default: 1)
 
 
+`idlenodes` - display idle whole nodes with a give property/feature
+
+    idlenodes [-h] [-a] account_name [property_name]
+
+    positional arguments:
+      account_name   display nodes usable by this account/allocation
+      property_name  (optional) display only nodes having this property
+
+    optional arguments:
+      -h, --help     show this help message and exit
+      -a, --all      display all nodes, not just idle ones
+
+    example: show idle Haswell (24 core) nodes usable by jobs submitted to lsa_flux:
+      idlenodes lsa_flux haswell
+
+
+
 INSTALLATION
 ============
 
