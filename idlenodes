@@ -1,0 +1,136 @@
+#!/usr/bin/env python
+#
+# idlenodes
+#
+# Displays idle whole nodes with a given property
+#
+
+import sys
+import os
+import re
+import string
+import subprocess
+import argparse
+import time
+
+from lxml import etree
+
+
+def run_moab(argv, type='xml'):
+    success = False
+    attempt = 1
+    while attempt <= 60:
+        try:
+            pipe = subprocess.Popen( argv, stdout=subprocess.PIPE )
+            if type == 'xml':
+                output = etree.parse( pipe.stdout )
+            else:
+                output = pipe.stdout.readlines()
+            pipe.stdout.close()
+            pipe.wait()
+            success = True
+            break
+        except:
+            pass
+        sys.stderr.write( 'Trying %s.' % argv[0].split('/')[-1] if attempt == 1 else '.' )
+        sys.stderr.flush()
+        attempt += 1
+        time.sleep( 1 )
+    if not success:
+        sys.stderr.write( "\nERROR: unable to run " + argv[0].split('/')[-1] )
+        sys.exit( 1 )
+    if attempt > 1:
+        sys.stderr.write( "\n" )
+        sys.stderr.flush()
+    return output
+
+
+def main():
+
+    parser = argparse.ArgumentParser( description="Displays idle whole nodes with a given property", epilog="example: show idle Haswell (24 core) nodes usable by jobs submitted to lsa_flux:\n  %s lsa_flux haswell" % sys.argv[0].split('/')[-1], formatter_class=argparse.RawTextHelpFormatter )
+    parser.add_argument( "account_name", help="display nodes usable by this account/allocation" )
+    parser.add_argument( "property_name", nargs="?", default="flux", help="(optional) display only nodes having this property" )
+    parser.add_argument("-a", "--all", help="display all nodes, not just idle ones", action="store_true" )
+    args = parser.parse_args()
+    if not re.search( r'^[a-zA-Z][a-zA-Z0-9_-]+$', args.account_name ):
+        sys.stderr.write( "ERROR: bad property name: must begin with a letter followed by letters, digits, underscores, and dashes." )
+        sys.exit( 1 );
+    if not re.search( r'^[a-zA-Z][a-zA-Z0-9_-]+$', args.property_name ):
+        sys.stderr.write( "ERROR: bad allocation name: must begin with a letter followed by letters, digits, underscores, and dashes." )
+        sys.exit( 1 );
+
+    flux = fluxm = fluxg = fluxoe = False
+    fluxoe_name = ''
+    if args.account_name.endswith( '_flux' ):
+        flux = True
+    elif args.account_name.endswith( '_fluxm' ):
+        fluxm = True
+    elif args.account_name.endswith( '_fluxg' ):
+        fluxg = True
+    elif args.account_name.endswith( '_fluxoe' ):
+        fluxoe = True
+        fluxoe_name = args.account_name[:-7]
+    else:
+        sys.stderr.write( "ERROR: allocation name doesn't end in a Flux service" )
+        sys.exit( 1 )
+
+    reservations = run_moab( [ '/opt/moab/bin/mdiag', '--xml', '-r' ] )
+
+    blocking_reservation = dict()
+    for r in reservations.iter( 'rsv' ):
+        name = r.attrib.get( 'Name' )
+        blocking_reservation[ name ] = True
+        flags = r.attrib.get( 'flags' )
+        if not flags:
+            blocking_reservation[ name ] = False
+            continue
+        flag = flags.split( ',' )
+        if 'ISACTIVE' not in flags:
+            blocking_reservation[ name ] = False
+            continue
+        if 'STANDINGRSV' in flags:
+            blocking_reservation[ name ] = False
+            continue
+
+    checknode = run_moab( [ '/opt/moab/bin/checknode', '--xml', 'ALL' ] )
+
+    output = []
+    for n in checknode.iter( 'node' ):
+        name = n.attrib.get( 'NODEID' )
+        if name == 'GLOBAL':
+            continue
+        state = n.attrib.get( 'NODESTATE' )
+        jobs = n.attrib.get( 'JOBLIST' )
+        properties = n.attrib.get( 'FEATURES' )
+        if not properties:
+            continue
+        props = properties.split( ',' )
+        if not args.property_name in props:
+            continue
+        if fluxoe and ( 'foe' not in props or fluxoe_name not in props ):
+            continue
+        if not fluxoe and ('foe' in props or n.attrib.get( 'PARTITION' ) == 'fluxoe' ):
+            continue
+        if fluxm and 'fluxm' not in props:
+            continue
+        if not fluxm and 'fluxm' in props:
+            continue
+        if fluxg and 'fluxg' not in props:
+            continue
+        if not fluxg and 'fluxg' in props:
+            continue
+        rsvlist = n.attrib.get( 'RSVLIST' )
+        if rsvlist:
+            for r in rsvlist.split( ',' ):
+                if blocking_reservation.get( r, True ):
+                    state = 'Reserved-' + state
+                    break
+        if state == 'Idle' or args.all:
+            output.append( '%s %s %s' % ( name, state, properties ) )
+
+    print "\n".join( sorted( output ) )
+
+
+if __name__ == '__main__':
+    main()
+
