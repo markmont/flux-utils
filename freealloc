@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # freealloc - display resources requested by jobs in an allocation
 #
@@ -27,6 +27,35 @@ import ctypes.util
 libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
 
 
+def run_moab(argv, type='xml'):
+    success = False
+    attempt = 1
+    while attempt <= 60:
+        try:
+            pipe = subprocess.Popen( argv, stdout=subprocess.PIPE )
+            if type == 'xml':
+		pass # so we don't have to import lxml.etree for this script
+                #output = etree.parse( pipe.stdout )
+            else:
+                output = pipe.stdout.readlines()
+            pipe.stdout.close()
+            pipe.wait()
+            success = True
+            break
+        except:
+            pass
+        sys.stderr.write( 'Trying %s.' % argv[0].split('/')[-1] if attempt == 1 else '.' )
+        sys.stderr.flush()
+        attempt += 1
+        time.sleep( 1 )
+    if not success:
+        sys.stderr.write( "\nERROR: unable to run " + argv[0].split('/')[-1] )
+        sys.exit( 1 )
+    if attempt > 1:
+        sys.stderr.write( "\n" )
+        sys.stderr.flush()
+    return output
+
 
 def main():
 
@@ -40,16 +69,8 @@ def main():
 
     maxproc = -1
     maxmem = -1 # memory in kb
-    mdiag = subprocess.Popen(
-        [ '/opt/moab/bin/mdiag', '-a', args.allocation_name ],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-    output = mdiag.stdout.readlines()
-    status = mdiag.wait()
-    if status != 0:
-        print "ERROR: mdiag exited with status %d:\n" % status
-        print "".join( output )
-        sys.exit( 2 )
+
+    output = run_moab( [ '/opt/moab/bin/mdiag', '-a', args.allocation_name ], type='text' )
     
     for line in output:
         m = re.search( r'\sMAXPROC=(\d+,)?(\d+)\s', line )
@@ -58,6 +79,8 @@ def main():
         if m: maxmem = int( m.group(2) ) * 1024  # convert mb to kb
     if maxproc == -1:
         print "ERROR: could not determine MAXPROC for allocation %s" % args.allocation_name
+	print "It is possible that %s may not currently be active." % args.allocation_name
+	print "To determine if this is the case, try running:\n    mdiag -a %s" % args.allocation_name
         sys.exit( 2 )
     if maxmem == -1:
         print "WARNING: could not determine MAXMEM for allocation %s, assuming 4 GB per core" % args.allocation_name
