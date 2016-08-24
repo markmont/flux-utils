@@ -35,11 +35,12 @@ if ( open( C, "</var/spool/torque/server_name" ) ) {
     $opt_cluster = <C>;
     chomp($opt_cluster);
     $opt_cluster = 'flux' if $opt_cluster eq 'nyx.arc-ts.umich.edu';
+    $opt_cluster = 'armis' if $opt_cluster eq 'armis.arc-ts.umich.edu';
     close(C);
 }
 
 my $result = GetOptions(
-  'cluster=s' => \$opt_days,
+  'cluster=s' => \$opt_cluster,
   'days=i'    => \$opt_days,
   'help'      => \$opt_help,
   );
