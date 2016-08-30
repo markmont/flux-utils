@@ -56,10 +56,10 @@ scheduled_hours = [ 8, 12, 16, 22 ]
 
 # account name and core counts
 accounts = [ 'lsa_flux', 'lsa_fluxm', 'lsa_fluxg' ]
-account_cores = { 'lsa_flux': 120, 'lsa_fluxm': 40, 'lsa_fluxg': 4 }
-account_mem = { 'lsa_flux': '480 GB', 'lsa_fluxm': '1024 GB', 'lsa_fluxg': '16 GB' }
+account_cores = { 'lsa_flux': 120, 'lsa_fluxm': 56, 'lsa_fluxg': 4 }
+account_mem = { 'lsa_flux': '480 GB', 'lsa_fluxm': '1434 GB', 'lsa_fluxg': '16 GB' }
 
-# "processor equivalents" for each allocation, in KB of memory:
+# amount of memory for each allocation, in KB, that is 1 "processor equivalent"
 account_pe = { 'lsa_flux': 4194304, 'lsa_fluxm': 26214400, 'lsa_fluxg': 4194304 }
 
 # Maximum per-job wallclock time for each allocation.
