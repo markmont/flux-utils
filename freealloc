@@ -5,6 +5,9 @@
 
 INSTALL_ROOT = '/usr/local/flux-utils';
 
+fluxod_maxproc = 4385
+
+
 import site
 site.addsitedir( "%s/lib/python2.7/site-packages/" % INSTALL_ROOT )
 
@@ -59,6 +62,8 @@ def run_moab(argv, type='xml'):
 
 def main():
 
+    global fluxod_maxproc
+
     parser = argparse.ArgumentParser(description='Displays unused cores and memory for an allocation')
     parser.add_argument("allocation_name", help="Name of the allocation")
     parser.add_argument("--jobs", help="display core and memory usage for each job", action="store_true")
@@ -74,17 +79,22 @@ def main():
     
     for line in output:
         m = re.search( r'\sMAXPROC=(\d+,)?(\d+)\s', line )
-        if m: maxproc = int( m.group(2) )
+        if m and maxproc == -1: maxproc = int( m.group(2) )
+        m = re.search( r'ALLOC_SUM:(\d+)', line )
+        if m: maxproc = int( m.group(1) )
         m = re.search( r'\sMAXMEM=(\d+,)?(\d+)\s', line )
         if m: maxmem = int( m.group(2) ) * 1024  # convert mb to kb
+    if args.allocation_name.endswith('_fluxod') and maxproc == -1:
+        maxproc = fluxod_maxproc
     if maxproc == -1:
         print "ERROR: could not determine MAXPROC for allocation %s" % args.allocation_name
 	print "It is possible that %s may not currently be active." % args.allocation_name
 	print "To determine if this is the case, try running:\n    mdiag -a %s" % args.allocation_name
         sys.exit( 2 )
     if maxmem == -1:
-        print "WARNING: could not determine MAXMEM for allocation %s, assuming 4 GB per core" % args.allocation_name
         maxmem = maxproc * 4 * 1024 * 1024
+        if not args.allocation_name.endswith('_fluxod'):
+            print "WARNING: could not determine MAXMEM for allocation %s, assuming 4 GB per core" % args.allocation_name
         #print "ERROR: could not determine MAXMEM for allocation %s" % args.allocation_name
         #sys.exit( 2 )
 
