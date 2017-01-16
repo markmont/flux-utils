@@ -96,7 +96,7 @@ my $e = Search::Elasticsearch->new( nodes => 'es.arc-ts.umich.edu:9200' );
 my $results = $e->search(
     index => $indices,
     body  => {
-        'size' => 100000,
+        'size' => 10000,
         'sort' => [ { '@timestamp' => { 'order' => 'asc' } } ],
         query => {
             'query_string' => {
