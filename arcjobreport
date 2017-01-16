@@ -131,7 +131,7 @@ my $results = $e->search(
     index => $indices,
     body  => {
         'size'  => 10000,
-        'sort'  => [ { 'jobid' => { 'order' => 'asc' } } ],
+        'sort'  => [ { 'jobid.raw' => { 'order' => 'asc' } } ],
         'query' => { 'query_string' => { 'query' => $query } },
     }
 );
