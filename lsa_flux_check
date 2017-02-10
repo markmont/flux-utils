@@ -130,6 +130,8 @@ def get_account_info():
             continue
         if re.search( r'^fluxtraining_flux', alloc, re.I ):
             continue
+        if re.search( r'^training_flux', alloc, re.I ):
+            continue
         if re.search( r'^hpc\d+_flux', alloc, re.I ):
             continue
         m = re.search( r'MAXPROC=(\d+)', line )
@@ -324,7 +326,7 @@ def main( args ):
                 if cores > 0 and mem > 0 and cores <= a_maxproc and mem <= a_maxmem:
                     better.append(a)
             if better:
-                msg = "%s job %s should be running under %s instead of %s" % ( user, id, " or ".join(better), account )
+		msg = "%s job %s should be running under %s instead of %s -- if it would be inappropriate to run the job under those accounts for some reason, please contact us to request an exception." % ( user, id, " or ".join(better), account )
                 warnings[user].append(msg)
 
         #
