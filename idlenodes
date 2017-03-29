@@ -59,7 +59,7 @@ def main():
         sys.stderr.write( "ERROR: bad allocation name: must begin with a letter followed by letters, digits, underscores, and dashes." )
         sys.exit( 1 );
 
-    flux = fluxm = fluxg = fluxoe = False
+    flux = fluxm = fluxg = fluxod = fluxoe = False
     fluxoe_name = ''
     if args.account_name.endswith( '_flux' ):
         flux = True
@@ -67,6 +67,8 @@ def main():
         fluxm = True
     elif args.account_name.endswith( '_fluxg' ):
         fluxg = True
+    elif args.account_name.endswith( '_fluxod' ):
+        fluxod = True
     elif args.account_name.endswith( '_fluxoe' ):
         fluxoe = True
         fluxoe_name = args.account_name[:-7]
@@ -105,11 +107,22 @@ def main():
         if not properties:
             continue
         props = properties.split( ',' )
+
+        partition = n.attrib.get( 'PARTITION' )
+        if partition == 'fluxoe':
+            props.append('foe')
+        if partition == 'fluxod':
+            props.append('fluxod')
+
         if not args.property_name in props:
+            continue
+        if fluxod and 'fluxod' not in props:
+            continue
+        if not fluxod and 'fluxod' in props:
             continue
         if fluxoe and ( 'foe' not in props or fluxoe_name not in props ):
             continue
-        if not fluxoe and ('foe' in props or n.attrib.get( 'PARTITION' ) == 'fluxoe' ):
+        if not fluxoe and 'foe' in props:
             continue
         if fluxm and 'fluxm' not in props:
             continue
@@ -119,6 +132,7 @@ def main():
             continue
         if not fluxg and 'fluxg' in props:
             continue
+        
         rsvlist = n.attrib.get( 'RSVLIST' )
         if rsvlist:
             for r in rsvlist.split( ',' ):
